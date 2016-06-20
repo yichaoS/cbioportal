@@ -90,7 +90,7 @@ public class CancerStudyView extends HttpServlet {
                 forwardToErrorPage(request, response, (String)request.getAttribute(ERROR), xdebug);
             } else {
                 RequestDispatcher dispatcher =
-                        getServletContext().getRequestDispatcher("/WEB-INF/jsp/study_view/cancer_study_view.jsp");
+                        getServletContext().getRequestDispatcher("/WEB-INF/jsp/dashboard/main.jsp");
                 dispatcher.forward(request, response);
             }
         
