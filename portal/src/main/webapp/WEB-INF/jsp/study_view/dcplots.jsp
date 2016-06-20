@@ -35,49 +35,57 @@
 <%@ page import="org.mskcc.cbio.portal.servlet.PatientView" %>
 <%@ page import="org.mskcc.cbio.portal.util.GlobalProperties" %>
 
-<link rel="stylesheet" type="text/css" href="css/study-view.css?<%=GlobalProperties.getAppVersion()%>">
-<link rel="stylesheet" type="text/css" href="css/introjs.min.css?<%=GlobalProperties.getAppVersion()%>">
-<link rel="stylesheet" type="text/css" href="css/introjs-rtl.min.css?<%=GlobalProperties.getAppVersion()%>">
-<link rel="stylesheet" type="text/css" href="css/bootstrap-alert.css?<%=GlobalProperties.getAppVersion()%>">
-<link rel="stylesheet" type="text/css" href="css/animate.css?<%=GlobalProperties.getAppVersion()%>">
-<link rel="stylesheet" type="text/css" href="css/fixed-data-table.min.css?<%=GlobalProperties.getAppVersion()%>">
-<link rel="stylesheet" type="text/css" href="css/bootstrap-dropdown-checkbox.css?<%=GlobalProperties.getAppVersion()%>">
-<script src="js/lib/bootstrap-notify.min.js?<%=GlobalProperties.getAppVersion()%>"></script>
+<script src="js/lib/jquery.min.js"></script>
+<script src="js/lib/jquery.tipTip.minified.js"></script>
+<script src="js/lib/mailme.js"></script>
+<script src="js/lib/d3.v3.min.js"></script>
+<script src="js/lib/jquery-ui.min.js"></script>
 
-<script type="text/javascript" src="https://www.google.com/jsapi"></script>
+<!-- build:js(.) scripts/vendor.js -->
+<!-- bower:js -->
+<script src="js/bower_components/modernizr/modernizr.js"></script>
+<script src="js/bower_components/chosen/chosen.jquery.min.js"></script>
+<script src="js/bower_components/datatables/media/js/jquery.dataTables.js"></script>
+<script src="js/bower_components/crossfilter2/crossfilter.js"></script>
+<script src="js/bower_components/dcjs/dc.js"></script>
+<script src="js/bower_components/classie/classie.js"></script>
+<script src="js/bower_components/get-style-property/get-style-property.js"></script>
+<script src="js/bower_components/get-size/get-size.js"></script>
+<script src="js/bower_components/eventie/eventie.js"></script>
+<script src="js/bower_components/eventEmitter/EventEmitter.js"></script>
+<script src="js/bower_components/unipointer/unipointer.js"></script>
+<script src="js/bower_components/unidragger/unidragger.js"></script>
+<script src="js/bower_components/draggabilly/draggabilly.js"></script>
+<script src="js/bower_components/doc-ready/doc-ready.js"></script>
+<script src="js/bower_components/matches-selector/matches-selector.js"></script>
+<script src="js/bower_components/fizzy-ui-utils/utils.js"></script>
+<script src="js/bower_components/outlayer/item.js"></script>
+<script src="js/bower_components/outlayer/outlayer.js"></script>
+<script src="js/bower_components/packery/dist/packery.pkgd.js"></script>
+<script src="js/bower_components/underscore/underscore.js"></script>
+<script src="js/bower_components/ev-emitter/ev-emitter.js"></script>
+<script src="js/bower_components/imagesloaded/imagesloaded.js"></script>
+<script src="js/bower_components/qtip2/jquery.qtip.js"></script>
+<script src="js/bower_components/qtip2/basic/jquery.qtip.js"></script>
+<script src="js/bower_components/vue/dist/vue.js"></script>
+<script src="js/bower_components/notifyjs/dist/notify.js"></script>
+<script src="js/bower_components/clipboard/dist/clipboard.js"></script>
+<script src="js/bower_components/plotly.js/dist/plotly.min.js"></script>
+<script src="js/bower_components/react/react.js"></script>
+<script src="js/bower_components/react/react-dom.js"></script>
+<!-- endbower -->
+<!-- endbuild -->
 
-<script type="text/javascript" src="js/lib/backbone-min.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/packery.pkgd.min.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/draggabilly.pkgd.min.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/intro.min.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/crossfilter.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/dataTables.fixedColumns.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/dataTables.tableTools.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/jquery.dataTables.fnSetFilteringDelay.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/dc.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/d3.layout.cloud.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/react.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/react-dom.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/fixed-data-table.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/react-chosen.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/ZeroClipboard.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/bootstrap-dropdown-checkbox.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script src="js/lib/EnhancedFixedDatatable.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script data-main="js/src/study-view/main.js?<%=GlobalProperties.getAppVersion()%>" src="js/require.js?<%=GlobalProperties.getAppVersion()%>"></script>
+<!-- build:css(.) styles/vendor.css -->
+<!-- bower:css -->
+<link rel="stylesheet" href="js/bower_components/chosen/chosen.min.css" />
+<link rel="stylesheet" href="js/bower_components/datatables/media/css/jquery.dataTables.css" />
+<link rel="stylesheet" href="js/bower_components/dcjs/dc.css" />
+<link rel="stylesheet" href="js/bower_components/qtip2/jquery.qtip.css" />
+<link rel="stylesheet" href="js/bower_components/components-font-awesome/css/font-awesome.css" />
+<link rel="stylesheet" href="js/bower_components/fixed-data-table/dist/fixed-data-table.min.css" />
+<!-- endbower -->
+<!-- endbuild -->
 
 
 
-<div id="summary-loading-wait">
-    <img src="images/ajax-loader.gif"/>
-</div>
-
-<div id="study-view-main" style="display: none;">
-    <div id="study-view-header-function"></div>
-
-    <div id="study-view-charts"></div>
-
-    <div id="study-view-update"></div>
-
-    <div id='data-table-chart'></div>
-
-</div>
