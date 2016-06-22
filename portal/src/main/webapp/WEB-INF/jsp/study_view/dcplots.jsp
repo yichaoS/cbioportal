@@ -44,6 +44,8 @@
 <script src="js/lib/dc.js"></script>
 <script src="js/lib/crossfilter.js"></script>
 
+
+<!-- build:js(.) scripts/vendor.js -->
 <!-- bower:js -->
 <script src="js/bower_components/modernizr/modernizr.js"></script>
 <script src="js/bower_components/chosen/chosen.jquery.min.js"></script>
