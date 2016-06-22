@@ -41,14 +41,15 @@
 <script src="js/lib/mailme.js"></script>
 <script src="js/lib/d3.v3.min.js"></script>
 <script src="js/lib/jquery-ui.min.js"></script>
+<script src="js/lib/dc.js"></script>
+<script src="js/lib/crossfilter.js"></script>
 
-<!-- build:js(.) scripts/vendor.js -->
 <!-- bower:js -->
 <script src="js/bower_components/modernizr/modernizr.js"></script>
 <script src="js/bower_components/chosen/chosen.jquery.min.js"></script>
 <script src="js/bower_components/datatables/media/js/jquery.dataTables.js"></script>
-<script src="js/bower_components/crossfilter2/crossfilter.js"></script>
-<script src="js/bower_components/dcjs/dc.js"></script>
+<%--<script src="js/bower_components/crossfilter2/crossfilter.js"></script>--%>
+<%--<script src="js/bower_components/dcjs/dc.js"></script>--%>
 <script src="js/bower_components/classie/classie.js"></script>
 <script src="js/bower_components/get-style-property/get-style-property.js"></script>
 <script src="js/bower_components/get-size/get-size.js"></script>
@@ -89,41 +90,43 @@
 <!-- endbower -->
 <!-- endbuild -->
 
-<script src="scripts/main.js"></script>
-<script src="scripts/vueCore.js"></script>
-<script src="scripts/controller/util.js"></script>
-<script src="scripts/controller/sync.js"></script>
-<script src="scripts/controller/event.js"></script>
-<script src="scripts/controller/sessionEvent.js"></script>
-<script src="scripts/controller/sessionUtil.js"></script>
-<script src="scripts/model/sessionServices.js"></script>
-<script src="scripts/model/dataProxy.js"></script>
-<script src="scripts/views/mainTemplate.js"></script>
-<script src="scripts/views/chartGroupTemplate.js"></script>
-<script src="scripts/views/individualChartTemplate.js"></script>
-<script src="scripts/views/components/chartOperationsHeader.js"></script>
-<script src="scripts/views/components/bridgeChart/bridgeChart.js"></script>
-<script src="scripts/views/components/header/manageCharts.js"></script>
-<script src="scripts/views/components/header/breadCrumbTemplate.js"></script>
-<script src="scripts/views/components/pieChart/pieChart.js"></script>
-<script src="scripts/views/components/pieChart/pieChartTemplate.js"></script>
-<script src="scripts/views/components/barChart/barChart.js"></script>
-<script src="scripts/views/components/barChart/barChartTemplate.js"></script>
-<script src="scripts/views/components/scatterPlot/scatterPlot.js"></script>
-<script src="scripts/views/components/scatterPlot/scatterPlotTemplate.js"></script>
-<script src="scripts/views/components/survivalChart/main.js"></script>
-<script src="scripts/views/components/survivalChart/template.js"></script>
-<script src="scripts/views/components/survivalChart/proxy.js"></script>
-<script src="scripts/views/components/survivalChart/components/curve.js"></script>
-<script src="scripts/views/components/survivalChart/components/kmEstimator.js"></script>
-<script src="scripts/views/components/survivalChart/components/logRankTest.js"></script>
-<script src="scripts/views/components/vc/editableFieldComponent.js"></script>
-<script src="scripts/views/components/vc/editableRowComponent.js"></script>
-<script src="scripts/views/components/vc/modalTemplate.js"></script>
-<script src="scripts/views/components/vc/addVCPopup.js"></script>
-<script src="scripts/views/components/dataTable/MutatedGeneCNATable.js"></script>
+<script src="js/src/dashboard/main.js"></script>
+<script src="js/src/dashboard/vueCore.js"></script>
+<script src="js/src/dashboard/controller/util.js"></script>
+<script src="js/src/dashboard/controller/sync.js"></script>
+<script src="js/src/dashboard/controller/event.js"></script>
+<script src="js/src/dashboard/controller/sessionEvent.js"></script>
+<script src="js/src/dashboard/controller/sessionUtil.js"></script>
+<script src="js/src/dashboard/model/sessionServices.js"></script>
+<script src="js/src/dashboard/model/dataProxy.js"></script>
+<script src="js/src/dashboard/views/mainTemplate.js"></script>
+<script src="js/src/dashboard/views/chartGroupTemplate.js"></script>
+<script src="js/src/dashboard/views/individualChartTemplate.js"></script>
+<script src="js/src/dashboard/views/components/chartOperationsHeader.js"></script>
+<script src="js/src/dashboard/views/components/bridgeChart/bridgeChart.js"></script>
+<script src="js/src/dashboard/views/components/header/manageCharts.js"></script>
+<script src="js/src/dashboard/views/components/header/breadCrumbTemplate.js"></script>
+<script src="js/src/dashboard/views/components/pieChart/pieChart.js"></script>
+<script src="js/src/dashboard/views/components/pieChart/pieChartTemplate.js"></script>
+<script src="js/src/dashboard/views/components/barChart/barChart.js"></script>
+<script src="js/src/dashboard/views/components/barChart/barChartTemplate.js"></script>
+<script src="js/src/dashboard/views/components/scatterPlot/scatterPlot.js"></script>
+<script src="js/src/dashboard/views/components/scatterPlot/scatterPlotTemplate.js"></script>
+<script src="js/src/dashboard/views/components/survivalChart/main.js"></script>
+<script src="js/src/dashboard/views/components/survivalChart/template.js"></script>
+<script src="js/src/dashboard/views/components/survivalChart/proxy.js"></script>
+<script src="js/src/dashboard/views/components/survivalChart/components/curve.js"></script>
+<script src="js/src/dashboard/views/components/survivalChart/components/kmEstimator.js"></script>
+<script src="js/src/dashboard/views/components/survivalChart/components/logRankTest.js"></script>
+<script src="js/src/dashboard/views/components/vc/editableFieldComponent.js"></script>
+<script src="js/src/dashboard/views/components/vc/editableRowComponent.js"></script>
+<script src="js/src/dashboard/views/components/vc/modalTemplate.js"></script>
+<script src="js/src/dashboard/views/components/vc/addVCPopup.js"></script>
+<script src="js/src/dashboard/views/components/dataTable/MutatedGeneCNATable.js"></script>
 
-
+<!-- build:css(.tmp) styles/main.css -->
+<link rel="stylesheet" href="css/dashboard/main.css"/>
+<link rel="stylesheet" href="css/dashboard/study-view.scss"/>
 
 <div class="container-fluid" id="complete-screen">
     <%--<nav class="navbar navbar-default navbar-fixed-top">--%>
@@ -200,4 +203,29 @@
 
 </div>
 
+<script>
+    $(document).ready(function () {
+        //Include style variables
+        window.style = {
+            vars: {}
+        };
 
+        $.get('js/src/dashboard/resources/vars.json')
+            .then(function(data) {
+                window.style.vars = data;
+                window.style.vars.survivalWidth = 320;
+                window.style.vars.survivalHeight = 320;
+                window.style.vars.barchartWidth = 350;
+                window.style.vars.barchartHeight = 120;
+            })
+
+        URL = "http://localhost:8081/api/sessions/";
+        var vcId_ = location.search.split('vc_id=')[1];
+        iViz.session.manage.init();
+        if (typeof vcId_ != 'undefined') {
+            iViz.session.model.getVirtualCohortDetails(vcId_);
+        } else {
+            iViz.init(["blca_tcga_pub"]);
+        }
+    });
+</script>
