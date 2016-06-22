@@ -35,6 +35,7 @@
 <%@ page import="org.mskcc.cbio.portal.servlet.PatientView" %>
 <%@ page import="org.mskcc.cbio.portal.util.GlobalProperties" %>
 
+<script src="https://rawgit.com/notifyjs/notifyjs/master/dist/notify.js"></script>
 <script src="js/lib/jquery.min.js"></script>
 <script src="js/lib/jquery.tipTip.minified.js"></script>
 <script src="js/lib/mailme.js"></script>
@@ -73,6 +74,7 @@
 <script src="js/bower_components/plotly.js/dist/plotly.min.js"></script>
 <script src="js/bower_components/react/react.js"></script>
 <script src="js/bower_components/react/react-dom.js"></script>
+<script src="js/bower_components/fixed-data-table/dist/fixed-data-table.js"></script>
 <!-- endbower -->
 <!-- endbuild -->
 
@@ -87,5 +89,115 @@
 <!-- endbower -->
 <!-- endbuild -->
 
+<script src="scripts/main.js"></script>
+<script src="scripts/vueCore.js"></script>
+<script src="scripts/controller/util.js"></script>
+<script src="scripts/controller/sync.js"></script>
+<script src="scripts/controller/event.js"></script>
+<script src="scripts/controller/sessionEvent.js"></script>
+<script src="scripts/controller/sessionUtil.js"></script>
+<script src="scripts/model/sessionServices.js"></script>
+<script src="scripts/model/dataProxy.js"></script>
+<script src="scripts/views/mainTemplate.js"></script>
+<script src="scripts/views/chartGroupTemplate.js"></script>
+<script src="scripts/views/individualChartTemplate.js"></script>
+<script src="scripts/views/components/chartOperationsHeader.js"></script>
+<script src="scripts/views/components/bridgeChart/bridgeChart.js"></script>
+<script src="scripts/views/components/header/manageCharts.js"></script>
+<script src="scripts/views/components/header/breadCrumbTemplate.js"></script>
+<script src="scripts/views/components/pieChart/pieChart.js"></script>
+<script src="scripts/views/components/pieChart/pieChartTemplate.js"></script>
+<script src="scripts/views/components/barChart/barChart.js"></script>
+<script src="scripts/views/components/barChart/barChartTemplate.js"></script>
+<script src="scripts/views/components/scatterPlot/scatterPlot.js"></script>
+<script src="scripts/views/components/scatterPlot/scatterPlotTemplate.js"></script>
+<script src="scripts/views/components/survivalChart/main.js"></script>
+<script src="scripts/views/components/survivalChart/template.js"></script>
+<script src="scripts/views/components/survivalChart/proxy.js"></script>
+<script src="scripts/views/components/survivalChart/components/curve.js"></script>
+<script src="scripts/views/components/survivalChart/components/kmEstimator.js"></script>
+<script src="scripts/views/components/survivalChart/components/logRankTest.js"></script>
+<script src="scripts/views/components/vc/editableFieldComponent.js"></script>
+<script src="scripts/views/components/vc/editableRowComponent.js"></script>
+<script src="scripts/views/components/vc/modalTemplate.js"></script>
+<script src="scripts/views/components/vc/addVCPopup.js"></script>
+<script src="scripts/views/components/dataTable/MutatedGeneCNATable.js"></script>
+
+
+
+<div class="container-fluid" id="complete-screen">
+    <%--<nav class="navbar navbar-default navbar-fixed-top">--%>
+        <div id="main-header">
+            <a href='javascript:iViz.init(["ov_tcga_pub", "ucec_tcga_pub", "blca_tcga_pub", "lgg_ucsf_2014"]);' class='reset'>
+                <button type='button' class='btn btn-default' style='margin-top: -5px;'>Reset All</button>
+            </a>
+            <!--<button type='button' class='btn btn-default'-->
+            <!--@click="addNewVC = true"-->
+            <!--id="save_cohort_btn">Save-->
+            <!--Cohort-->
+            <!--</button>-->
+            <!--<button type='button' class="btn btn-default"-->
+            <!--@click="showVCList = true">-->
+            <!--<i class="fa fa-bars"></i>-->
+            <!--</button>-->
+      <span id="stat">
+          Samples Selected <mark>{{ selectedSamplesNum }}</mark> &nbsp;&nbsp;
+          Patients Selected <mark>{{ selectedPatientsNum }}</mark> &nbsp;&nbsp; &nbsp;&nbsp;
+      </span>
+            <!--<add-vc :add-new-vc.sync="addNewVC"  :from-iViz="true"-->
+            <!--:selected-samples-num="selectedSamplesNum"-->
+            <!--:selected-patients-num="selectedPatientsNum"></add-vc>-->
+            <select id="study-view-add-chart" class="chosen-select"
+                    v-select :groups="groups">
+                <option id='' value="">Add Chart</option>
+                <!--<option v-for="attributes in groups[0].attributes"></option>-->
+                <option is="manage-charts" :data.sync="group"
+                        v-for="(index,group) in groups" :parent="index"></option>
+            </select>
+            <div id="breadcrumbs_container">
+                <div v-for="group in groups">
+                    <div v-for="(index1, item) in group.attributes">
+                        <bread-crumb :attributes.sync="item"
+                                     :filters.sync="item.filter"></bread-crumb>
+                    </div>
+                </div>
+            </div>
+
+            <!--<modaltemplate :show.sync="showVCList" size="modal-xlg">-->
+            <!--<div slot="header">-->
+            <!--<h4 class="modal-title">Virtual Cohorts</h4>-->
+            <!--</div>-->
+            <!--<div slot="body">-->
+            <!--<table class="table table-bordered table-hover table-condensed">-->
+            <!--<thead>-->
+            <!--<tr style="font-weight: bold">-->
+            <!--<td style="width:20%">Name</td>-->
+            <!--<td style="width:40%">Description</td>-->
+            <!--<td style="width:10%">Patients</td>-->
+            <!--<td style="width:10%">Samples</td>-->
+            <!--<td style="width:20%">Operations</td>-->
+            <!--</tr>-->
+            <!--</thead>-->
+            <!--<tr is="editable-row" :data="virtualCohort" :showmodal.sync="showVCList" v-for="virtualCohort in virtualCohorts">-->
+            <!--</tr>-->
+            <!--</table>-->
+            <!--</div>-->
+
+            <!--<div slot="footer">-->
+            <!--&lt;!&ndash;<button type="button" class="btn btn-default"&ndash;&gt;-->
+            <!--&lt;!&ndash;onclick="window.location.href='/index.html'">Add new</button>&ndash;&gt;-->
+            <!--</div>-->
+            <!--</modaltemplate>-->
+        </div>
+    <%--</nav>--%>
+    <div class="grid" id="main-grid" :class="{loading:isloading}">
+        <main-template :groups.sync="groups"
+                       :selectedpatients.sync="selectedpatients" :patientmap="patientmap" :samplemap="samplemap"
+                       :selectedsamples.sync="selectedsamples"></main-template>
+    </div>
+    <div id="main-bridge" style="display: none;"></div>
+
+
+</div>
 
 
