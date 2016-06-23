@@ -227,7 +227,8 @@
         if (typeof vcId_ != 'undefined') {
             iViz.session.model.getVirtualCohortDetails(vcId_);
         } else {
-            iViz.init(["blca_tcga_pub"]);
+            //iViz.init(["blca_tcga_pub"]);
+            iViz.init([window.cancerStudyId]);
         }
     });
 </script>
