@@ -125,6 +125,7 @@ var LogRankTest = function() {
         var chi_square_score = (O1 - E1) * (O1 - E1) / V;
         $.post( "calcPval.do", { chi_square_score: chi_square_score })
             .done( function(_data) {
+                console.log("original result:" + _data);
                 callBackFunc = _callBackFunc;
                 callBackFunc(_data);
             });
