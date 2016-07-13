@@ -36,6 +36,8 @@
 <%@ page import="org.mskcc.cbio.portal.util.GlobalProperties" %>
 
 <script src="js/src/dashboard/iviz-vendor.js"></script>
+<script src="js/src/dashboard/iviz.js"></script>
+<script src="js/src/dashboard/model/dataProxy.js"></script>
 
 <script src="https://rawgit.com/notifyjs/notifyjs/master/dist/notify.js"></script>
 <script src="js/lib/jquery.tipTip.minified.js"></script>
@@ -45,7 +47,6 @@
 <link rel="stylesheet" href="css/dashboard/iviz-vendor.css" />
 <link rel="stylesheet" href="css/dashboard/iviz.css" />
 
-<script src="js/src/dashboard/iviz.js"></script>
 
 <style>
     #complete-screen .grid {
@@ -56,7 +57,7 @@
 <div class="container-fluid" id="complete-screen">
     <%--<nav class="navbar navbar-default navbar-fixed-top">--%>
         <div id="main-header">
-            <a href='javascript:iViz.init(["ov_tcga_pub", "ucec_tcga_pub", "blca_tcga_pub", "lgg_ucsf_2014"]);' class='reset'>
+            <a href='javascript:iViz.data.init([window.cancerStudyId], iViz.init);' class='reset'>
                 <button type='button' class='btn btn-default' style='margin-top: -5px;'>Reset All</button>
             </a>
             <!--<button type='button' class='btn btn-default'-->
@@ -150,9 +151,7 @@
         if (typeof vcId_ != 'undefined') {
             iViz.session.model.getVirtualCohortDetails(vcId_);
         } else {
-            $.getJSON('js/src/dashboard/resources/sample.json', function(_data) {
-                iViz.init(_data);
-            });
+            iViz.data.init([window.cancerStudyId], iViz.init);
         }
     });
 </script>
