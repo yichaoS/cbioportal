@@ -44,8 +44,8 @@
 <script src="js/lib/mailme.js"></script>
 <script src="js/lib/jquery-ui.min.js"></script>
 
-<link rel="stylesheet" href="css/dashboard/iviz-vendor.css" />
-<link rel="stylesheet" href="css/dashboard/iviz.css" />
+<link rel="stylesheet" href="css/dashboard/iviz-vendor.css"/>
+<link rel="stylesheet" href="css/dashboard/iviz.css"/>
 
 
 <style>
@@ -57,9 +57,6 @@
 <div class="container-fluid" id="complete-screen">
     <%--<nav class="navbar navbar-default navbar-fixed-top">--%>
         <div id="main-header">
-            <a href='javascript:iViz.data.init([window.cancerStudyId], iViz.init);' class='reset'>
-                <button type='button' class='btn btn-default' style='margin-top: -5px;'>Reset All</button>
-            </a>
             <!--<button type='button' class='btn btn-default'-->
             <!--@click="addNewVC = true"-->
             <!--id="save_cohort_btn">Save-->
@@ -69,26 +66,53 @@
             <!--@click="showVCList = true">-->
             <!--<i class="fa fa-bars"></i>-->
             <!--</button>-->
-      <span id="stat">
-          Samples Selected <mark>{{ selectedSamplesNum }}</mark> &nbsp;&nbsp;
-          Patients Selected <mark>{{ selectedPatientsNum }}</mark> &nbsp;&nbsp; &nbsp;&nbsp;
-      </span>
-            <!--<add-vc :add-new-vc.sync="addNewVC"  :from-iViz="true"-->
-            <!--:selected-samples-num="selectedSamplesNum"-->
-            <!--:selected-patients-num="selectedPatientsNum"></add-vc>-->
-            <select id="study-view-add-chart" class="chosen-select"
-                    v-select :groups="groups">
-                <option id='' value="">Add Chart</option>
-                <!--<option v-for="attributes in groups[0].attributes"></option>-->
-                <option is="manage-charts" :data.sync="group"
-                        v-for="(index,group) in groups" :parent="index"></option>
-            </select>
-            <div id="breadcrumbs_container">
-                <div v-for="group in groups">
-                    <div v-for="(index1, item) in group.attributes">
-                        <bread-crumb :attributes.sync="item"
-                                     :filters.sync="item.filter"></bread-crumb>
-                    </div>
+            <div id="study-view-header-left">
+                <span id="stat">
+                  Samples Selected <mark>{{ selectedSamplesNum }}</mark> &nbsp;&nbsp;
+                  Patients Selected <mark>{{ selectedPatientsNum }}</mark> &nbsp;&nbsp; &nbsp;&nbsp;
+                </span>
+                <span id="query-by-gene-span">
+                   <span id="queryByGeneTextSpan"></span>
+                   <textarea id="query-by-gene-textarea" class="expand expandFocusOut" rows="1" cols="10"></textarea>
+                </span>
+            </div>
+            
+            <div id="study-view-header-right" style="margin-right:30px;">
+                <custom-case-input></custom-case-input>
+                <!--<add-vc :add-new-vc.sync="addNewVC"  :from-iViz="true"-->
+                <!--:selected-samples-num="selectedSamplesNum"-->
+                <!--:selected-patients-num="selectedPatientsNum"></add-vc>-->
+                <select id="study-view-add-chart" class="chosen-select"
+                        v-select :groups="groups">
+                    <option id='' value="">Add Chart</option>
+                    <!--<option v-for="attributes in groups[0].attributes"></option>-->
+                    <option is="manage-charts" :data.sync="group"
+                            v-for="(index,group) in groups" :parent="index"></option>
+                </select>
+            </div>
+
+            <div id="breadcrumbs_container" v-if="hasfilters">
+                <div style="float:left;">
+                    <span class="breadcrumb_container">Your selections: </span>
+                </div>
+                <span class="breadcrumb_container" v-if="customfilter.patientIds.length>0||customfilter.sampleIds.length>0">
+                  <span>{{customfilter.display_name}}</span>
+                  <img class="breadcrumb_remove" src="../images/remove_breadcrumb_icon.png" @click="clearAll()">
+                </span>
+                <div style="float:left" v-for="group in groups">
+                    <bread-crumb :attributes.sync="item"
+                                 :filters.sync="item.filter" v-for="(index1, item) in group.attributes"
+                                 v-if="item.filter.length>0"></bread-crumb>
+                    <!--<div v-for="(index1, item) in group.attributes"
+                         v-if="item.filter.length>0">
+                      <bread-crumb :attributes.sync="item"
+                                   :filters.sync="item.filter"></bread-crumb>
+                    </div>-->
+                </div>
+                <div>
+                    <button type='button' @click="clearAll()">Clear
+                        All
+                    </button>
                 </div>
             </div>
 
@@ -117,15 +141,16 @@
             <!--&lt;!&ndash;onclick="window.location.href='/index.html'">Add new</button>&ndash;&gt;-->
             <!--</div>-->
             <!--</modaltemplate>-->
+            
         </div>
     <%--</nav>--%>
+    
     <div class="grid" id="main-grid" :class="{loading:isloading}">
-        <main-template :groups.sync="groups"
+        <main-template :groups.sync="groups" :redrawgroups.sync="redrawgroups"
                        :selectedpatients.sync="selectedpatients" :patientmap="patientmap" :samplemap="samplemap"
-                       :selectedsamples.sync="selectedsamples"></main-template>
+                       :selectedsamples.sync="selectedsamples"
+                       :hasfilters.sync="hasfilters" :customfilter.sync="customfilter"></main-template>
     </div>
-    <div id="main-bridge" style="display: none;"></div>
-
 
 </div>
 
@@ -137,7 +162,7 @@
         };
 
         $.get('js/src/dashboard/resources/vars.json')
-            .then(function(data) {
+            .then(function (data) {
                 window.style.vars = data;
                 window.style.vars.survivalWidth = 320;
                 window.style.vars.survivalHeight = 320;
