@@ -97,7 +97,7 @@
                 </div>
                 <span class="breadcrumb_container" v-if="customfilter.patientIds.length>0||customfilter.sampleIds.length>0">
                   <span>{{customfilter.display_name}}</span>
-                  <img class="breadcrumb_remove" src="../images/remove_breadcrumb_icon.png" @click="clearAll()">
+                  <img class="breadcrumb_remove" src="images/dashboard/remove_breadcrumb_icon.png" @click="clearAll()">
                 </span>
                 <div style="float:left" v-for="group in groups">
                     <bread-crumb :attributes.sync="item"
@@ -115,7 +115,6 @@
                     </button>
                 </div>
             </div>
-
             <!--<modaltemplate :show.sync="showVCList" size="modal-xlg">-->
             <!--<div slot="header">-->
             <!--<h4 class="modal-title">Virtual Cohorts</h4>-->
@@ -170,13 +169,10 @@
                 window.style.vars.barchartHeight = 120;
             })
 
-        URL = "http://localhost:8081/api/sessions/";
-        var vcId_ = location.search.split('vc_id=')[1];
-        iViz.session.manage.init();
-        if (typeof vcId_ != 'undefined') {
-            iViz.session.model.getVirtualCohortDetails(vcId_);
-        } else {
-            iViz.data.init([window.cancerStudyId], iViz.init);
-        }
+        iViz.data.init([window.cancerStudyId], iViz.init);
+        QueryByGeneTextArea.init('#query-by-gene-textarea', function(genes) {
+            iViz.session.manage.getInstance().$broadcast('gene-list-updated',genes);
+        });
+        
     });
 </script>
