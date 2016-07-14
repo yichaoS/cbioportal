@@ -72,7 +72,7 @@ public class CancerStudyView extends HttpServlet {
     private static Logger logger = Logger.getLogger(CancerStudyView.class);
     public static final String ID = "id";
     public static final String ERROR = "error";
-    public static final String COHORTS = "cancer_study";
+    public static final String COHORTS = "cohorts";
     public static final String MUTATION_PROFILE_IDS = "mutation_profile";
     public static final String CNA_PROFILE_IDS = "cna_profile";
     public static final String STUDY_SAMPLE_MAP = "study_sample_map";
@@ -166,7 +166,7 @@ public class CancerStudyView extends HttpServlet {
     }
     
     private boolean validate(HttpServletRequest request) throws DaoException, JsonProcessingException, IOException {
-        String cohortIds = request.getParameter(QueryBuilder.COHORTS);
+        String cohortIds = request.getParameter(COHORTS);
         
         if (cohortIds==null) {
         	 request.setAttribute(ERROR, "No such cancer study");
@@ -233,7 +233,6 @@ public class CancerStudyView extends HttpServlet {
 		}
 		ObjectMapper mapper = new ObjectMapper();
 		String studySampleMapString = mapper.writeValueAsString(studySampleMap);
-		request.setAttribute(COHORTS, cohortIds);
 		request.setAttribute(STUDY_SAMPLE_MAP, studySampleMapString);
 		request.setAttribute(QueryBuilder.CANCER_STUDY_LIST, studySampleMap.keySet());
 		return true;
