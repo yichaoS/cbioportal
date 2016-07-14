@@ -45,14 +45,14 @@ var iViz = (function (_, $) {
       data_ = _rawDataJson;
 
       if (_inputSampleList !== undefined && _inputPatientList !== undefined) {
-        var _sampleData = _.filter(_data.groups.sample.data, function (_dataObj) {
+        var _sampleData = _.filter(data_.groups.sample.data, function (_dataObj) {
           return $.inArray(_dataObj['sample_id'], _inputSampleList) !== -1
         });
         var _sampleDataIndices = {};
         for (var _i = 0; _i < _sampleData.length; _i++) {
           _sampleDataIndices[_sampleData[_i].sample_id] = _i;
         }
-        var _patientData = _.filter(_data.groups.patient.data, function (_dataObj) {
+        var _patientData = _.filter(data_.groups.patient.data, function (_dataObj) {
           return $.inArray(_dataObj['patient_id'], _inputPatientList) !== -1
         });
         var _patientDataIndices = {};
@@ -3986,6 +3986,15 @@ var iViz = (function (_, $) {
         window.open(cbio.util.getLinkToSampleView(_pts_study_id, _pts_sample_id));
       });
       Plotly.plot(document.getElementById(chartId_), data, layout);
+
+      //link to sample view
+      var _plotsElem = document.getElementById(chartId_);
+      _plotsElem.on('plotly_click', function(data){
+        var _pts_study_id = data.points[0].data.study_id[data.points[0].pointNumber];
+        var _pts_sample_id = data.points[0].data.sample_id[data.points[0].pointNumber];
+        window.open(cbio.util.getLinkToSampleView(_pts_study_id, _pts_sample_id));
+      });
+      
       initCanvasDownloadData();
     };
 
@@ -5438,6 +5447,7 @@ var LogRankTest = (function() {
       },
       addGeneClick: function(clickedRowData) {
         this.$dispatch('manage-gene',clickedRowData.gene);
+        QueryByGeneTextArea.addRemoveGene(clickedRowData.gene);
       },
       setDisplayTitle: function(numOfCases) {
         this.displayName = this.attributes.display_name+'('+numOfCases+' profiled samples)';
@@ -6295,7 +6305,7 @@ var EnhancedFixedDataTableSpecial = (function() {
       return (
         React.createElement(Cell, {onFocus: this.onFocus, className: 'EFDT-cell EFDT-cell-full' +
           (this.props.selectedRowIndex.indexOf(data[rowIndex].index) != -1 ? ' row-selected' : ''),
-            columnKey: field},
+            },
           React.createElement("span", {style: flag ? {backgroundColor:'yellow'} : {},
               onClick: field === 'gene' ? this.selectGene.bind(this, data[rowIndex].index) : '',
               onMouseEnter: (tableType === 'pieLabel' && _.isFunction(this.props.pieLabelMouseEnterFunc) && field === 'name') ? this.enterPieLabel.bind(this, data[rowIndex].row) : '',
