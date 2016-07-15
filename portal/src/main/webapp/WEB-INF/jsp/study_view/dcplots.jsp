@@ -37,6 +37,7 @@
 
 <script src="js/src/dashboard/iviz-vendor.js"></script>
 <script src="js/src/dashboard/iviz.js"></script>
+<script src="js/src/dashboard/iviz-session.js"></script>
 <script src="js/src/dashboard/model/dataProxy.js"></script>
 
 <script src="https://rawgit.com/notifyjs/notifyjs/master/dist/notify.js"></script>
@@ -155,11 +156,11 @@
 
 <script>
     $(document).ready(function () {
+
         //Include style variables
         window.style = {
             vars: {}
         };
-
         $.get('js/src/dashboard/resources/vars.json')
             .then(function (data) {
                 window.style.vars = data;
@@ -169,9 +170,10 @@
                 window.style.vars.barchartHeight = 120;
             })
 
-        iViz.data.init([window.cancerStudyId], iViz.init);
+        iViz.data.init('http://localhost:8080/cbioportal', [window.cancerStudyId], iViz.init);
+        
         QueryByGeneTextArea.init('#query-by-gene-textarea', function(genes) {
-            iViz.session.manage.getInstance().$broadcast('gene-list-updated',genes);
+            iViz.vue.manage.getInstance().$broadcast('gene-list-updated',genes);
         });
         
     });
