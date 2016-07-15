@@ -33,26 +33,49 @@
 package org.mskcc.cbio.portal.servlet;
 
 import java.io.IOException;
-import javax.servlet.*;
-import javax.servlet.http.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
-import org.mskcc.cbio.portal.dao.*;
-import org.mskcc.cbio.portal.model.*;
-import org.mskcc.cbio.portal.util.*;
-import org.owasp.validator.html.PolicyException;
+import org.mskcc.cbio.portal.dao.DaoCancerStudy;
+import org.mskcc.cbio.portal.dao.DaoException;
+import org.mskcc.cbio.portal.dao.DaoSampleList;
+import org.mskcc.cbio.portal.model.CancerStudy;
+import org.mskcc.cbio.portal.model.Cohort;
+import org.mskcc.cbio.portal.model.CohortStudyCasesMap;
+import org.mskcc.cbio.portal.model.GeneticProfile;
+import org.mskcc.cbio.portal.model.SampleList;
+import org.mskcc.cbio.portal.util.AccessControl;
+import org.mskcc.cbio.portal.util.SessionServiceUtil;
+import org.mskcc.cbio.portal.util.SpringUtil;
+import org.mskcc.cbio.portal.util.XDebug;
 import org.springframework.security.core.userdetails.UserDetails;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  *
  * @author jj
  */
+
 public class CancerStudyView extends HttpServlet {
     private static Logger logger = Logger.getLogger(CancerStudyView.class);
     public static final String ID = "id";
     public static final String ERROR = "error";
-    public static final String CANCER_STUDY = "cancer_study";
-    public static final String MUTATION_PROFILE = "mutation_profile";
-    public static final String CNA_PROFILE = "cna_profile";
+    public static final String COHORTS = "cancer_study";
+    public static final String MUTATION_PROFILE_IDS = "mutation_profile";
+    public static final String CNA_PROFILE_IDS = "cna_profile";
+    public static final String STUDY_SAMPLE_MAP = "study_sample_map";
     
     private static final DaoSampleList daoSampleList = new DaoSampleList();
 
@@ -84,7 +107,7 @@ public class CancerStudyView extends HttpServlet {
 
         try {
             if (validate(request)) {
-                setGeneticProfiles(request);
+               setGeneticProfiles(request);
             }
             
             if (request.getAttribute(ERROR)!=null) {
@@ -101,72 +124,144 @@ public class CancerStudyView extends HttpServlet {
                                "An error occurred while trying to connect to the database.", xdebug);
         } 
     }
-    
-    private boolean validate(HttpServletRequest request) throws DaoException {
-        String cancerStudyID = request.getParameter(ID);
-        if (cancerStudyID==null) {
-            cancerStudyID = request.getParameter(QueryBuilder.CANCER_STUDY_ID);
-        }
-        
-        CancerStudy cancerStudy = DaoCancerStudy
-                .getCancerStudyByStableId(cancerStudyID);
-        if (cancerStudy==null) {
-            try {
+
+    private CancerStudy getCancerStudyDetails(String cancerStudyId){
+    	CancerStudy cancerStudy = null;
+		try {
+			cancerStudy = DaoCancerStudy
+			        .getCancerStudyByStableId(cancerStudyId);
+			if (cancerStudy==null) {
                 cancerStudy = DaoCancerStudy.getCancerStudyByInternalId(
-                        Integer.parseInt(cancerStudyID));
-            } catch(NumberFormatException ex) {}
-                
-        }
-        if (cancerStudy==null) {
-            request.setAttribute(ERROR, "No such cancer study");
-            return false;
-        }
-        String cancerStudyIdentifier = cancerStudy.getCancerStudyStableId();
+                        Integer.parseInt(cancerStudyId));
+			}
+		} catch(NumberFormatException ex) {}
+		catch (DaoException e) {}
+    	return cancerStudy;
+    }
+    
+    private void addCohortToMap(Map<String, Set<String>> studySampleMap, String cancerStudyId, Set<String> sampleIds) throws DaoException{
+			if (accessControl.isAccessibleCancerStudy(cancerStudyId).size() == 1) {
+			        UserDetails ud = accessControl.getUserDetails();
+			        if (ud != null) {
+			            logger.info("CancerStudyView.validate: Query initiated by user: " + ud.getUsername()+" : Study: "+cancerStudyId);
+			        }
+			        
+			        if(studySampleMap.containsKey(cancerStudyId)){
+						Set<String> sampleIdsTemp = studySampleMap.get(cancerStudyId);
+						if(sampleIds.size() == 0){
+							SampleList sampleList = daoSampleList.getSampleListByStableId(cancerStudyId+"_all");
+							sampleIds = new HashSet<String>(sampleList.getSampleList());
+						}
+						sampleIdsTemp.addAll(sampleIds);
+						studySampleMap.put(cancerStudyId, sampleIdsTemp);
+					}else{
+						if(sampleIds.size() == 0){
+							SampleList sampleList = daoSampleList.getSampleListByStableId(cancerStudyId+"_all");
+							sampleIds = new HashSet<String>(sampleList.getSampleList());
+						}
+						studySampleMap.put(cancerStudyId, sampleIds);
+					}
+			  }
+			
+    }
+    
+    private boolean validate(HttpServletRequest request) throws DaoException, JsonProcessingException, IOException {
+        String cohortIds = request.getParameter(QueryBuilder.COHORTS);
         
-        if (accessControl.isAccessibleCancerStudy(cancerStudyIdentifier).size() != 1) {
-            request.setAttribute(ERROR,
-                    "You are not authorized to view the cancer study with id: '" +
-                    cancerStudyIdentifier + "'. ");
-            return false;
+        if (cohortIds==null) {
+        	 request.setAttribute(ERROR, "No such cancer study");
+        	 return false;
         }
-        else {
-            UserDetails ud = accessControl.getUserDetails();
-            if (ud != null) {
-                logger.info("CancerStudyView.validate: Query initiated by user: " + ud.getUsername());
-            }
+        String [] cohortIdsList = cohortIds.split(",");
+        Map<String, Cohort> cohortMap = new HashMap<String, Cohort>();
+        SessionServiceUtil sessionServiceUtil = new SessionServiceUtil();
+        Set<String> unknownStudyIds = new HashSet<>();
+        Set<String> unAuthorizedStudyIds = new HashSet<>();
+        Map<String, Set<String>> studySampleMap = new HashMap<String, Set<String>>();
+        
+        for(String cohortId : cohortIdsList){
+        	 CancerStudy cancerStudy = getCancerStudyDetails(cohortId);
+		        if (cancerStudy==null) {
+		        	Cohort virtualCohort = sessionServiceUtil.getVirtualCohortData(cohortId);
+		        	if(virtualCohort != null){
+		        		cohortMap.put(virtualCohort.getId(), virtualCohort);
+		        	}else{
+		        		unknownStudyIds.add(cohortId);
+		        	}
+		        }else{
+		        	Cohort cohort = new Cohort();
+		        	cohort.setStudyName(cancerStudy.getName());
+		        	cohort.setId(cancerStudy.getCancerStudyStableId());
+		        	cohort.setDescription(cancerStudy.getDescription());
+		        	cohort.setVirtualCohort(false);
+		        	cohortMap.put(cohort.getId(), cohort);
+		        }
         }
-        
-        String sampleListId = (String)request.getAttribute(QueryBuilder.CASE_SET_ID);
-        if (sampleListId==null) {
-            sampleListId = cancerStudy.getCancerStudyStableId()+"_all";
-            request.setAttribute(QueryBuilder.CASE_SET_ID, sampleListId);
-        }
-        
-        SampleList sampleList = daoSampleList.getSampleListByStableId(sampleListId);
-        if (sampleList==null) {
-            request.setAttribute(ERROR,
-                    "Could not find sample list of '" + sampleListId + "'. ");
-            return false;
-        }
-        
-        request.setAttribute(QueryBuilder.CASE_IDS, sampleList.getSampleList());
-        
-        request.setAttribute(CANCER_STUDY, cancerStudy);
-        request.setAttribute(QueryBuilder.HTML_TITLE, cancerStudy.getName());
-        return true;
+		
+		for(String cohortId:cohortMap.keySet()){
+			Cohort cohort = cohortMap.get(cohortId);
+			if(cohort.isVirtualCohort()){
+				for(CohortStudyCasesMap cohortStudyCasesMap: cohort.getCohortStudyCasesMap()){
+					 CancerStudy cancerStudy = getCancerStudyDetails(cohortStudyCasesMap.getStudyID());
+					 if(cancerStudy != null){
+						 addCohortToMap(studySampleMap,cohortStudyCasesMap.getStudyID(),cohortStudyCasesMap.getSamples());
+					 }
+				}
+			}else{
+				addCohortToMap(studySampleMap,cohort.getId(),new HashSet<String>());
+			}
+		}
+		//TODO: need to update logic if there are multiple unknown/ unauthorized studies
+		if(studySampleMap.size() == 0){
+			if(unknownStudyIds.size() > 0){
+				request.setAttribute(ERROR, "No such cohort(s): "+StringUtils.join(unknownStudyIds,","));
+				return false;
+			}
+			/*if(unAuthorizedStudyIds.size() > 0){
+				request.setAttribute(ERROR,
+	                    "You are not authorized to view the cohort with id: '" +
+	                    		unAuthorizedStudyIds.iterator().next() + "'. ");
+				return false;
+			}*/
+		}else{
+			if(cohortMap.size() ==1 && studySampleMap.size() == 1){
+				request.setAttribute(QueryBuilder.HTML_TITLE,cohortMap.get(cohortMap.keySet().iterator().next()).getStudyName());
+				request.setAttribute("COHORT",cohortMap.get(cohortMap.keySet().iterator().next()));
+			}else{
+				request.setAttribute(QueryBuilder.HTML_TITLE, "Summary");
+			}
+		}
+		ObjectMapper mapper = new ObjectMapper();
+		String studySampleMapString = mapper.writeValueAsString(studySampleMap);
+		request.setAttribute(COHORTS, cohortIds);
+		request.setAttribute(STUDY_SAMPLE_MAP, studySampleMapString);
+		request.setAttribute(QueryBuilder.CANCER_STUDY_LIST, studySampleMap.keySet());
+		return true;
     }
     
     private void setGeneticProfiles(HttpServletRequest request) throws DaoException {
-        CancerStudy cancerStudy = (CancerStudy)request.getAttribute(CANCER_STUDY);
-        GeneticProfile mutProfile = cancerStudy.getMutationProfile();
-        if (mutProfile!=null) {
-            request.setAttribute(MUTATION_PROFILE, mutProfile);
-        }
+    	Set<String> cancerStudyIds = (Set<String>)request.getAttribute(QueryBuilder.CANCER_STUDY_LIST);
+    	Set<String> mutationProfileIds = new HashSet<String>();
+    	Set<String> cnaProfileIds = new HashSet<String>();
+    	for(String cancerStudyId : cancerStudyIds){
+    		CancerStudy cancerStudy = DaoCancerStudy
+			        .getCancerStudyByStableId(cancerStudyId);
+    		  GeneticProfile mutProfile = cancerStudy.getMutationProfile();
+    		  if (mutProfile!=null) {
+    			  mutationProfileIds.add(mutProfile.getStableId());
+    	          //  request.setAttribute(MUTATION_PROFILE, mutProfile);
+    	        }
+    	        
+    	        GeneticProfile cnaProfile = cancerStudy.getCopyNumberAlterationProfile(true);
+    	        if (cnaProfile!=null) {
+    	        	cnaProfileIds.add(cnaProfile.getStableId());
+    	            //request.setAttribute(CNA_PROFILE, cnaProfile);
+    	        }
+    	}
+    	
+    	request.setAttribute(MUTATION_PROFILE_IDS, mutationProfileIds);
+    	request.setAttribute(CNA_PROFILE_IDS, cnaProfileIds);
         
-        GeneticProfile cnaProfile = cancerStudy.getCopyNumberAlterationProfile(true);
-        if (cnaProfile!=null) {
-            request.setAttribute(CNA_PROFILE, cnaProfile);
-        }
     }
     
     private void forwardToErrorPage(HttpServletRequest request, HttpServletResponse response,

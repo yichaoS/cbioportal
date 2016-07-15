@@ -86,6 +86,12 @@
     };
 </script>
 
+<!-- iViz integration libraries START-->
+<script type="text/javascript" src="js/bower_components/vue/dist/vue.js"></script>
+<script type="text/javascript" src="js/src/dashboard/main.js?<%=GlobalProperties.getAppVersion()%>"></script>
+<script type="text/javascript" src="js/src/dashboard/vueCore.js?<%=GlobalProperties.getAppVersion()%>"></script>
+<script type="text/javascript" src="js/src/dashboard/controller/sessionUtil.js?<%=GlobalProperties.getAppVersion()%>"></script>
+<!-- iViz integration libraries END-->
 <script type="text/javascript" src="js/src/Models.js?<%=GlobalProperties.getAppVersion()%>"></script>
 <script type="text/javascript" src="js/src/cgx_jquery.js?<%=GlobalProperties.getAppVersion()%>"></script>
 <script type="text/javascript" src="js/src/dynamicQuery.js?<%=GlobalProperties.getAppVersion()%>"></script>

@@ -58,11 +58,11 @@
 <div class="container-fluid" id="complete-screen">
     <%--<nav class="navbar navbar-default navbar-fixed-top">--%>
         <div id="main-header">
-            <!--<button type='button' class='btn btn-default'-->
-            <!--@click="addNewVC = true"-->
-            <!--id="save_cohort_btn">Save-->
-            <!--Cohort-->
-            <!--</button>-->
+            <button type='button' class='btn btn-default'
+            @click="addNewVC = true"
+            id="save_cohort_btn">Save
+            Cohort
+            </button>
             <!--<button type='button' class="btn btn-default"-->
             <!--@click="showVCList = true">-->
             <!--<i class="fa fa-bars"></i>-->
@@ -170,11 +170,25 @@
                 window.style.vars.barchartHeight = 120;
             })
 
-        iViz.data.init('http://localhost:8080/cbioportal', [window.cancerStudyId], iViz.init);
+        URL = "http://localhost:8081/api/sessions/";
+        var vcId_ = location.search.split('vc_id=')[1];
+        iViz.session.manage.init();
+        if (typeof vcId_ != 'undefined') {
+            iViz.session.model.getVirtualCohortDetails(vcId_);
+        } else {
+            //iViz.init(["blca_tcga_pub"]);
+        	var cancerStudyIds = [];
+            var samples = []
+            $.each(window.studySampleMap,function(cancerStudyId,sampleIds){
+                cancerStudyIds.push(cancerStudyId);
+                samples = samples.concat(sampleIds);
+            })
+            var cancerStudyIds = Object.keys(window.studySampleMap)
+            iViz.data.init('http://localhost:8080/cbioportal',cancerStudyIds,iViz.init,samples);
+        }
         
         QueryByGeneTextArea.init('#query-by-gene-textarea', function(genes) {
             iViz.vue.manage.getInstance().$broadcast('gene-list-updated',genes);
         });
-        
     });
 </script>

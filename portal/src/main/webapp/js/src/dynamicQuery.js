@@ -835,6 +835,10 @@ function addMetaDataToPage() {
     // Add studies to tree, and climb up adding one to each level's descendant studies
     // DMP hack
     var dmp_studies = [];
+    
+    // Get virtual cohorts
+    var virtualStudies = iViz.session.utils.getVirtualCohorts();
+    
     for (var study in json.cancer_studies) {
 	if (study.indexOf("mskimpact") !== -1) {
 		// DMP hack
@@ -940,6 +944,32 @@ function addMetaDataToPage() {
 		flat_jstree_data.push({'id':id, 'parent':jstree_root_id, 'text':truncateStudyName(json.cancer_studies[id].name), 
 			'li_attr':{name: studyName, description: metaDataJson.cancer_studies[id].description, search_terms: 'MSKCC DMP'}});
 	});
+    }
+    if(virtualStudies.length > 0){
+        jstree_data.push({'id':'virtual-study-group', 'parent':jstree_root_id, 'text':'Virtual Studies', 'li_attr':{name:'VIRTUAL STUDY'}});
+        var studyName;
+        var numSamplesInStudy;
+        var samplePlurality;
+        $.each(virtualStudies, function(ind, val) {
+            console.log(ind+'   '+val)
+            studyName = truncateStudyName(val.studyName);
+            numSamplesInStudy = val.samplesLength;
+            if (numSamplesInStudy == 1) {
+                        samplePlurality = 'sample';
+                    }
+                    else if (numSamplesInStudy > 1) {
+                        samplePlurality = 'samples';
+                    }
+                    else {
+                        samplePlurality = '';
+                        numSamplesInStudy = '';
+                    }
+            jstree_data.push({'id':val.virtualCohortID, 'parent':'virtual-study-group', 'text':studyName.concat('<span style="font-weight:normal;font-style:italic;"> '+ numSamplesInStudy + ' ' + samplePlurality + '</span>'), 
+                'li_attr':{name: studyName, description: val.description}});
+            
+            flat_jstree_data.push({'id':val.virtualCohortID, 'parent':jstree_root_id, 'text':truncateStudyName(val.studyName), 
+                'li_attr':{name: studyName, description: val.description, search_terms: 'VIRTUAL STUDY'}});
+        });
     }
     while (node_queue.length > 0) {
 	    currNode = node_queue.shift();

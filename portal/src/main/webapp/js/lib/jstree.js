@@ -2922,8 +2922,8 @@
 						hide: {delay: 0, fixed: true}
 					});
 				}
-                                
-                                var $linkOutIcon = $('<i class="btn btn-default btn-sm jstree-node-decorator" style="cursor:pointer;  padding: 0px 5px; font-weight: normal;font-style: normal;margin-left: 10px; color:white; background-color:#2986e2">Summary</i>');
+                
+                var $linkOutIcon = $('<i class="btn btn-default btn-sm jstree-node-decorator" style="cursor:pointer;  padding: 0px 5px; font-weight: normal;font-style: normal;margin-left: 10px; color:white; background-color:#2986e2">Summary</i>');
 				obj.append($linkOutIcon);
 				$linkOutIcon.mouseenter(function() {
 					$linkOutIcon.fadeTo('fast', 0.7);
@@ -2937,6 +2937,7 @@
 				$linkOutIcon.click(function(e) {
 					e.preventDefault();
 					window.open('study?id='+node.id);
+						window.open('study.do?cohorts='+node.id);
 				});
 			} else {
 				if (this.node_has_descendant_branches(node.id)) {
@@ -3189,6 +3190,15 @@
 				this.trigger('changed', { 'action' : 'deselect_all', 'selected' : this._data.core.selected, 'old_selection' : tmp });
 			}
 		},
+        /**
+         * Jump to study page with selected nodes
+         */
+        dashboard: function() {
+            var selected = $("#select_multiple_studies").val().split(',').map(function(i) {
+                return i.trim();
+            });
+            window.open('study.do?cohorts='+selected.join(','));
+        },
 		/**
 		 * checks if a node is selected
 		 * @name is_selected(obj)
