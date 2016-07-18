@@ -192,9 +192,26 @@ function loadMetaData() {
                 console.log("Loading metadata for "+window.cancer_study_id_selected);
                 // this code should be about the same as in loadStudyMetaData
                 window.metaDataJson.cancer_studies[window.cancer_study_id_selected] = json;
-                //  Add Meta Data to current page
-                addMetaDataToPage();
-                showNewContent();
+                var username = $('#header_bar_table span').text();
+                iViz.session.URL = "http://localhost:8081/session_service/api/sessions/localhost/virtual_cohort/";
+
+                var virtualStudies = "";
+                console.log(username)
+                if(username.length>0){
+                    iViz.session.username = username.length>0?username:"DEFAULT";
+                    $.when(iViz.session.model.loadUserVirtualCohorts(username)).then(function(resp){
+                        virtualStudies = resp;
+                        addMetaDataToPage(virtualStudies);
+                        showNewContent();
+                    }).fail(function () {
+                        addMetaDataToPage([]);
+                        showNewContent();
+                    });
+                }else{
+                        virtualStudies = iViz.session.utils.getVirtualCohorts();
+                        addMetaDataToPage(virtualStudies);
+                        showNewContent();
+                }
             });
         });
     }
@@ -795,7 +812,7 @@ function geneSetSelected() {
 
 //  Adds Meta Data to the Page.
 //  Tiggered at the end of successful AJAX/JSON request.
-function addMetaDataToPage() {
+function addMetaDataToPage(virtualStudies) {
     console.log("Adding Meta Data to Query Form");
     json = window.metaDataJson;
 
@@ -940,6 +957,32 @@ function addMetaDataToPage() {
 		flat_jstree_data.push({'id':id, 'parent':jstree_root_id, 'text':truncateStudyName(json.cancer_studies[id].name), 
 			'li_attr':{name: studyName, description: metaDataJson.cancer_studies[id].description, search_terms: 'MSKCC DMP'}});
 	});
+    }
+    if(virtualStudies.length > 0){
+        jstree_data.push({'id':'virtual-study-group', 'parent':jstree_root_id, 'text':'Virtual Studies', 'li_attr':{name:'VIRTUAL STUDY'}});
+        var studyName;
+        var numSamplesInStudy;
+        var samplePlurality;
+        $.each(virtualStudies, function(ind, val) {
+            console.log(ind+'   '+val)
+            studyName = truncateStudyName(val.studyName);
+            numSamplesInStudy = val.samplesLength;
+            if (numSamplesInStudy == 1) {
+                        samplePlurality = 'sample';
+                    }
+                    else if (numSamplesInStudy > 1) {
+                        samplePlurality = 'samples';
+                    }
+                    else {
+                        samplePlurality = '';
+                        numSamplesInStudy = '';
+                    }
+            jstree_data.push({'id':val.virtualCohortID, 'parent':'virtual-study-group', 'text':studyName.concat('<span style="font-weight:normal;font-style:italic;"> '+ numSamplesInStudy + ' ' + samplePlurality + '</span>'), 
+                'li_attr':{name: studyName, description: val.description}});
+            
+            flat_jstree_data.push({'id':val.virtualCohortID, 'parent':jstree_root_id, 'text':truncateStudyName(val.studyName), 
+                'li_attr':{name: studyName, description: val.description, search_terms: 'VIRTUAL STUDY'}});
+        });
     }
     while (node_queue.length > 0) {
 	    currNode = node_queue.shift();

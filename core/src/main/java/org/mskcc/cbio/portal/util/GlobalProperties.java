@@ -199,6 +199,9 @@ public class GlobalProperties {
     public static final String DARWIN_AUTHORITY = "darwin.authority";
     public static final String CIS_USER = "cis.user";
     public static final String DISABLED_TABS = "disabled_tabs";
+    public static final String SESSION_SERVICE_URL = "session_service.url";
+    public static final String DEFAULT_SESSION_SERVICE_URL = "http://localhost:8080/api/sessions";
+    public static final String SESSION_SERVICE_SOURCE = "session_service.source";
     
     private static Log LOG = LogFactory.getLog(GlobalProperties.class);
     private static Properties properties = initializeProperties();
@@ -774,6 +777,16 @@ public class GlobalProperties {
         return (tabs.length > 0 && disabledTabs.length() > 0) ? Arrays.asList(tabs) : new ArrayList<String>();
     }
 
+    public static String getSessionServiceUrl(){
+    	  String url = properties.getProperty(SESSION_SERVICE_URL);
+    	  return (url == null) ? DEFAULT_SESSION_SERVICE_URL : url;
+    }
+    
+    public static String getSessionServiceSource(){
+    	String source = properties.getProperty(SESSION_SERVICE_SOURCE);
+    	return (source == null) ? null : source;
+    }
+    
     public static void main(String[] args)
     {
         System.out.println(getAppVersion());
