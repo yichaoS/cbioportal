@@ -53,6 +53,41 @@
     #complete-screen .grid {
         top: 30px;
     }
+    .container-fluid {
+      padding-left: 0px !important; 
+     padding-right: 0px !important; 
+    }
+    #main-header {
+    margin-left: 0px !important;
+    margin-bottom: 0px !important;
+    margin-top: 0px !important;
+    bottom: 0px !important;
+    left: 0px !important;
+    position: relative;
+    border-bottom: 1px solid darkgray;
+        width: 1200px;
+    background-color: white;
+    z-index: 20;
+    -webkit-backface-visibility: hidden;
+    border-bottom: 1px solid darkgray;
+    padding-bottom: 10px;
+    }
+    #complete-screen .grid {
+     top: 0px !important;
+     margin-top: 10px;
+    }
+    #breadcrumbs_container {
+    padding: 5px 10px 0 0;
+    }
+    #complete-screen .breadcrumb_container{
+      float: none !important;
+    } #complete-screen #query-by-gene-textarea {
+      box-sizing: content-box !important; 
+    }#complete-screen textarea {
+    box-sizing: inherit !important; 
+}
+
+
 </style>
 
 <div class="container-fluid" id="complete-screen">
@@ -63,14 +98,14 @@
             id="save_cohort_btn">Save
             Cohort
             </button>
-            <!--<button type='button' class="btn btn-default"-->
-            <!--@click="showVCList = true">-->
-            <!--<i class="fa fa-bars"></i>-->
-            <!--</button>-->
+            <button type='button' class="btn btn-default"
+      @click="showVCList = true">
+      <i class="fa fa-bars"></i>
+      </button>
             <div id="study-view-header-left">
                 <span id="stat">
-                  Samples Selected <mark>{{ selectedSamplesNum }}</mark> &nbsp;&nbsp;
-                  Patients Selected <mark>{{ selectedPatientsNum }}</mark> &nbsp;&nbsp; &nbsp;&nbsp;
+                  Samples Selected: <span>{{ selectedSamplesNum }}</span> &nbsp;&nbsp;
+                  Patients Selected: <span>{{ selectedPatientsNum }}</span> &nbsp;&nbsp; &nbsp;&nbsp;
                 </span>
                 <span id="query-by-gene-span">
                    <span id="queryByGeneTextSpan"></span>
@@ -78,11 +113,11 @@
                 </span>
             </div>
             
-            <div id="study-view-header-right" style="margin-right:30px;">
+            <div id="study-view-header-right">
                 <custom-case-input></custom-case-input>
-                <!--<add-vc :add-new-vc.sync="addNewVC"  :from-iViz="true"-->
-                <!--:selected-samples-num="selectedSamplesNum"-->
-                <!--:selected-patients-num="selectedPatientsNum"></add-vc>-->
+                <add-vc :add-new-vc.sync="addNewVC"  :from-iViz="true"
+                :selected-samples-num="selectedSamplesNum"
+                :selected-patients-num="selectedPatientsNum"></add-vc>
                 <select id="study-view-add-chart" class="chosen-select"
                         v-select :groups="groups">
                     <option id='' value="">Add Chart</option>
@@ -92,13 +127,15 @@
                 </select>
             </div>
 
-            <div id="breadcrumbs_container" v-if="hasfilters">
+            <div id="breadcrumbs_container" v-if="hasfilters" style="display: inline-block;">
                 <div style="float:left;">
                     <span class="breadcrumb_container">Your selections: </span>
                 </div>
+                <div style="float:left;">
                 <span class="breadcrumb_container" v-if="customfilter.patientIds.length>0||customfilter.sampleIds.length>0">
                   <span>{{customfilter.display_name}}</span>
                   <img class="breadcrumb_remove" src="images/dashboard/remove_breadcrumb_icon.png" @click="clearAll()">
+                  </div>
                 </span>
                 <div style="float:left" v-for="group in groups">
                     <bread-crumb :attributes.sync="item"
@@ -110,37 +147,37 @@
                                    :filters.sync="item.filter"></bread-crumb>
                     </div>-->
                 </div>
-                <div>
-                    <button type='button' @click="clearAll()">Clear
+                <div style="float:left;">
+                    <button type='button' class="btn btn-default btn-xs study-view-header-clear-all" @click="clearAll()">Clear
                         All
                     </button>
                 </div>
             </div>
-            <!--<modaltemplate :show.sync="showVCList" size="modal-xlg">-->
-            <!--<div slot="header">-->
-            <!--<h4 class="modal-title">Virtual Cohorts</h4>-->
-            <!--</div>-->
-            <!--<div slot="body">-->
-            <!--<table class="table table-bordered table-hover table-condensed">-->
-            <!--<thead>-->
-            <!--<tr style="font-weight: bold">-->
-            <!--<td style="width:20%">Name</td>-->
-            <!--<td style="width:40%">Description</td>-->
-            <!--<td style="width:10%">Patients</td>-->
-            <!--<td style="width:10%">Samples</td>-->
-            <!--<td style="width:20%">Operations</td>-->
-            <!--</tr>-->
-            <!--</thead>-->
-            <!--<tr is="editable-row" :data="virtualCohort" :showmodal.sync="showVCList" v-for="virtualCohort in virtualCohorts">-->
-            <!--</tr>-->
-            <!--</table>-->
-            <!--</div>-->
+                  <modaltemplate :show.sync="showVCList" size="modal-xlg">
+      <div slot="header">
+      <h4 class="modal-title">Virtual Cohorts</h4>
+      </div>
+      <div slot="body">
+      <table class="table table-bordered table-hover table-condensed">
+      <thead>
+      <tr style="font-weight: bold">
+      <td style="width:20%">Name</td>
+      <td style="width:40%">Description</td>
+      <td style="width:10%">Patients</td>
+      <td style="width:10%">Samples</td>
+      <td style="width:20%">Operations</td>
+      </tr>
+      </thead>
+      <tr is="editable-row" :data="virtualCohort" :showmodal.sync="showVCList" v-for="virtualCohort in virtualCohorts">
+      </tr>
+      </table>
+      </div>
 
-            <!--<div slot="footer">-->
-            <!--&lt;!&ndash;<button type="button" class="btn btn-default"&ndash;&gt;-->
-            <!--&lt;!&ndash;onclick="window.location.href='/index.html'">Add new</button>&ndash;&gt;-->
-            <!--</div>-->
-            <!--</modaltemplate>-->
+      <div slot="footer">
+      <!--<button type="button" class="btn btn-default"-->
+      <!--onclick="window.location.href='/index.html'">Add new</button>-->
+      </div>
+      </modaltemplate>
             
         </div>
     <%--</nav>--%>
@@ -171,8 +208,10 @@
             })
 
         URL = "http://localhost:8081/api/sessions/";
+        iViz.session.URL = "http://localhost:8081/session_service/api/sessions/localhost/virtual_cohort/";
+        iViz.session.username = window.username
         var vcId_ = location.search.split('vc_id=')[1];
-        iViz.session.manage.init();
+        iViz.vue.manage.init();
         if (typeof vcId_ != 'undefined') {
             iViz.session.model.getVirtualCohortDetails(vcId_);
         } else {

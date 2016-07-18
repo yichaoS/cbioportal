@@ -152,7 +152,7 @@ public class CancerStudyView extends HttpServlet {
 							SampleList sampleList = daoSampleList.getSampleListByStableId(cancerStudyId+"_all");
 							sampleIds = new HashSet<String>(sampleList.getSampleList());
 						}
-						sampleIdsTemp.addAll(sampleIds);
+						sampleIdsTemp.retainAll(sampleIds);
 						studySampleMap.put(cancerStudyId, sampleIdsTemp);
 					}else{
 						if(sampleIds.size() == 0){
@@ -224,7 +224,7 @@ public class CancerStudyView extends HttpServlet {
 				return false;
 			}*/
 		}else{
-			if(cohortMap.size() ==1 && studySampleMap.size() == 1){
+			if(cohortMap.size() ==1){
 				request.setAttribute(QueryBuilder.HTML_TITLE,cohortMap.get(cohortMap.keySet().iterator().next()).getStudyName());
 				request.setAttribute("COHORT",cohortMap.get(cohortMap.keySet().iterator().next()));
 			}else{

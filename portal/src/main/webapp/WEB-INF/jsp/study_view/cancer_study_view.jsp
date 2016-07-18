@@ -91,7 +91,7 @@ if (cancerStudyViewError!=null) {
 <table width="100%">
 	
     <tr>
-    <%if (cohortIdsList.size()==1) {%>
+    <%if (cohort != null) {%>
         <td>
             <form method="post" action="index.do">
                 <b><u><%=cohort.getStudyName()%></u></b>
@@ -103,13 +103,15 @@ if (cancerStudyViewError!=null) {
         <%}%>
     </tr>
     
-   <%--  <tr>
-        <td id="study-desc"><%=cancerStudy.getDescription()%>
-            <%if (null!=cancerStudy.getPmid()) {%>
+  <tr>
+    <%if (cohort != null) {%>
+        <td id="study-desc"><%=cohort.getDescription()%>
+            <%-- <%if (null!=cancerStudy.getPmid()) {%>
             &nbsp;<a href="http://www.ncbi.nlm.nih.gov/pubmed/<%=cancerStudy.getPmid()%>">PubMed</a>
-            <%}%>
+            <%}%> --%>
         </td>
-    </tr> --%>
+          <%}%>
+    </tr> 
 </table>
 
 
@@ -203,9 +205,10 @@ if (cancerStudyViewError!=null) {
 </style>
 
 <script type="text/javascript">
+var username = $('#header_bar_table span').text();
+iViz.session.username = username.length>0?username:"DEFAULT";
 var studySampleMap = '<%=studySampleMap%>';
 studySampleMap = JSON.parse(studySampleMap);
-console.log(studySampleMap)
 <%--var cancerStudyId = '<%=cancerStudy.getCancerStudyStableId()%>';
  var cancerStudyName = '<%=StringEscapeUtils.escapeJavaScript(cancerStudy.getName())%>';
 var mutationProfileId = <%=mutationProfileStableId==null%>?null:'<%=mutationProfileStableId%>';

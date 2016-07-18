@@ -192,9 +192,26 @@ function loadMetaData() {
                 console.log("Loading metadata for "+window.cancer_study_id_selected);
                 // this code should be about the same as in loadStudyMetaData
                 window.metaDataJson.cancer_studies[window.cancer_study_id_selected] = json;
-                //  Add Meta Data to current page
-                addMetaDataToPage();
-                showNewContent();
+                var username = $('#header_bar_table span').text();
+                iViz.session.URL = "http://localhost:8081/session_service/api/sessions/localhost/virtual_cohort/";
+
+                var virtualStudies = "";
+                console.log(username)
+                if(username.length>0){
+                    iViz.session.username = username.length>0?username:"DEFAULT";
+                    $.when(iViz.session.model.loadUserVirtualCohorts(username)).then(function(resp){
+                        virtualStudies = resp;
+                        addMetaDataToPage(virtualStudies);
+                        showNewContent();
+                    }).fail(function () {
+                        addMetaDataToPage([]);
+                        showNewContent();
+                    });
+                }else{
+                        virtualStudies = iViz.session.utils.getVirtualCohorts();
+                        addMetaDataToPage(virtualStudies);
+                        showNewContent();
+                }
             });
         });
     }
@@ -795,7 +812,7 @@ function geneSetSelected() {
 
 //  Adds Meta Data to the Page.
 //  Tiggered at the end of successful AJAX/JSON request.
-function addMetaDataToPage() {
+function addMetaDataToPage(virtualStudies) {
     console.log("Adding Meta Data to Query Form");
     json = window.metaDataJson;
 
@@ -835,10 +852,6 @@ function addMetaDataToPage() {
     // Add studies to tree, and climb up adding one to each level's descendant studies
     // DMP hack
     var dmp_studies = [];
-    
-    // Get virtual cohorts
-    var virtualStudies = iViz.session.utils.getVirtualCohorts();
-    
     for (var study in json.cancer_studies) {
 	if (study.indexOf("mskimpact") !== -1) {
 		// DMP hack

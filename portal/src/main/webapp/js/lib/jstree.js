@@ -2936,8 +2936,7 @@
 				});
 				$linkOutIcon.click(function(e) {
 					e.preventDefault();
-					window.open('study?id='+node.id);
-						window.open('study.do?cohorts='+node.id);
+					window.open('study?cohorts='+node.id);
 				});
 			} else {
 				if (this.node_has_descendant_branches(node.id)) {
