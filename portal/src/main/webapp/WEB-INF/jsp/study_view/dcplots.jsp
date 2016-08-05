@@ -37,7 +37,6 @@
 
 <script src="js/src/dashboard/iviz-vendor.js"></script>
 <script src="js/src/dashboard/iviz.js"></script>
-<script src="js/src/dashboard/iviz-session.js"></script>
 <script src="js/src/dashboard/model/dataProxy.js"></script>
 
 <script src="https://rawgit.com/notifyjs/notifyjs/master/dist/notify.js"></script>
@@ -58,96 +57,70 @@
 <div class="container-fluid" id="complete-screen">
     <%--<nav class="navbar navbar-default navbar-fixed-top">--%>
         <div id="main-header">
-            <!--<button type='button' class='btn btn-default'-->
-            <!--@click="addNewVC = true"-->
-            <!--id="save_cohort_btn">Save-->
-            <!--Cohort-->
-            <!--</button>-->
-            <!--<button type='button' class="btn btn-default"-->
-            <!--@click="showVCList = true">-->
-            <!--<i class="fa fa-bars"></i>-->
-            <!--</button>-->
-            <div id="study-view-header-left">
-                <span id="stat">
-                  Samples Selected <mark>{{ selectedSamplesNum }}</mark> &nbsp;&nbsp;
-                  Patients Selected <mark>{{ selectedPatientsNum }}</mark> &nbsp;&nbsp; &nbsp;&nbsp;
-                </span>
-                <span id="query-by-gene-span">
-                   <span id="queryByGeneTextSpan"></span>
-                   <textarea id="query-by-gene-textarea" class="expand expandFocusOut" rows="1" cols="10"></textarea>
-                </span>
+            <div id="iviz-header-left">
+                <%--<div style="float: left; margin-right: 10px;">--%>
+                    <%--<session-component :show-save-button="showSaveButton" :show-manage-button="showManageButton"--%>
+                                       <%--:selected-patients-num="selectedPatientsNum" :selected-samples-num="selectedSamplesNum"--%>
+                                       <%--:userid="userid" :stats="stats" :update-stats.sync="updateStats"></session-component>--%>
+                <%--</div>--%>
+
+                <span class="iviz-header-left-case-name" style="display: block;">Samples selected: </span>
+        <span id="iviz-header-left-sample-select" @click="openCases()" class="iviz-header-left-case-number iviz-header-button"
+              :class="{'iviz-button-hover':highlightAllButtons||highlightCaseButtons}"
+              role="button" tabindex="0" style="display: block;">{{ selectedSamplesNum }}</span>
+                <span class="iviz-header-left-case-name" style="display: block;">Patients selected: </span>
+        <span id="iviz-header-left-patient-select" @click="openCases()" class="iviz-header-left-case-number iviz-header-button"
+              :class="{'iviz-button-hover':highlightAllButtons||highlightCaseButtons}"
+              role="button" tabindex="0" style="display: block;">{{ selectedPatientsNum }}</span>
+        
+        <span id="iviz-header-left-case-download" class="iviz-header-button" @click="downloadCaseData()"
+              @mouseenter="highlightCaseButtons=true" @mouseleave="highlightCaseButtons=false" role="button"
+              tabindex="0" data-hasqtip="9" aria-describedby="qtip-9"><img src="images/in.svg" alt="download"></span>
+      
+      <span id="query-by-gene-span">
+          <span id="queryByGeneTextSpan"></span>
+          <textarea id="query-by-gene-textarea" class="expand expandFocusOut"
+                    :class="{'iviz-button-hover':highlightAllButtons}" rows="1" cols="10"></textarea>
+      </span>
+                <img id="arrow_studyview" src="images/arrow_studyview.png" alt="">
+                <form id="iviz-form"  v-on:submit.prevent="submitForm" method="post" target="_blank" style="float: left;">
+                    <input type="submit" @mouseenter="highlightAllButtons=true" @mouseleave="highlightAllButtons=false"
+                           id="iviz-header-left-1" value="Query" class="iviz-header-button" style="display: block;">
+                </form>
+
             </div>
-            
-            <div id="study-view-header-right" style="margin-right:30px;">
+
+            <div id="iviz-header-right" style="margin-right:30px;">
                 <custom-case-input></custom-case-input>
-                <!--<add-vc :add-new-vc.sync="addNewVC"  :from-iViz="true"-->
-                <!--:selected-samples-num="selectedSamplesNum"-->
-                <!--:selected-patients-num="selectedPatientsNum"></add-vc>-->
-                <select id="study-view-add-chart" class="chosen-select"
-                        v-select :groups="groups">
+
+                <select id="iviz-add-chart" class="chosen-select"
+                        v-select :charts="charts">
                     <option id='' value="">Add Chart</option>
-                    <!--<option v-for="attributes in groups[0].attributes"></option>-->
-                    <option is="manage-charts" :data.sync="group"
-                            v-for="(index,group) in groups" :parent="index"></option>
+                    <option id="{{data.attr_id}}" v-if="!data.show" value="{{data.attr_id}}" v-for="(index,data) in charts">{{data.display_name}}</option>
                 </select>
             </div>
 
             <div id="breadcrumbs_container" v-if="hasfilters">
-                <div style="float:left;">
+                <div style="float:left;" >
                     <span class="breadcrumb_container">Your selections: </span>
                 </div>
-                <span class="breadcrumb_container" v-if="customfilter.patientIds.length>0||customfilter.sampleIds.length>0">
-                  <span>{{customfilter.display_name}}</span>
-                  <img class="breadcrumb_remove" src="images/dashboard/remove_breadcrumb_icon.png" @click="clearAll()">
-                </span>
+
+        <span class="breadcrumb_container" v-if="customfilter.patientIds.length>0||customfilter.sampleIds.length>0">
+          <span>{{customfilter.display_name}}</span>
+          <img class="breadcrumb_remove" src="images/remove_breadcrumb_icon.png" @click="clearAll()">
+        </span>
                 <div style="float:left" v-for="group in groups">
                     <bread-crumb :attributes.sync="item"
                                  :filters.sync="item.filter" v-for="(index1, item) in group.attributes"
-                                 v-if="item.filter.length>0"></bread-crumb>
-                    <!--<div v-for="(index1, item) in group.attributes"
-                         v-if="item.filter.length>0">
-                      <bread-crumb :attributes.sync="item"
-                                   :filters.sync="item.filter"></bread-crumb>
-                    </div>-->
+                                 v-if="item.filter.length>0" ></bread-crumb>
                 </div>
-                <div>
-                    <button type='button' @click="clearAll()">Clear
-                        All
-                    </button>
-                </div>
+                <div><button type='button' @click="clearAll()" class="btn btn-default btn-xs">Clear All</button></div>
             </div>
-            <!--<modaltemplate :show.sync="showVCList" size="modal-xlg">-->
-            <!--<div slot="header">-->
-            <!--<h4 class="modal-title">Virtual Cohorts</h4>-->
-            <!--</div>-->
-            <!--<div slot="body">-->
-            <!--<table class="table table-bordered table-hover table-condensed">-->
-            <!--<thead>-->
-            <!--<tr style="font-weight: bold">-->
-            <!--<td style="width:20%">Name</td>-->
-            <!--<td style="width:40%">Description</td>-->
-            <!--<td style="width:10%">Patients</td>-->
-            <!--<td style="width:10%">Samples</td>-->
-            <!--<td style="width:20%">Operations</td>-->
-            <!--</tr>-->
-            <!--</thead>-->
-            <!--<tr is="editable-row" :data="virtualCohort" :showmodal.sync="showVCList" v-for="virtualCohort in virtualCohorts">-->
-            <!--</tr>-->
-            <!--</table>-->
-            <!--</div>-->
-
-            <!--<div slot="footer">-->
-            <!--&lt;!&ndash;<button type="button" class="btn btn-default"&ndash;&gt;-->
-            <!--&lt;!&ndash;onclick="window.location.href='/index.html'">Add new</button>&ndash;&gt;-->
-            <!--</div>-->
-            <!--</modaltemplate>-->
-            
         </div>
     <%--</nav>--%>
-    
     <div class="grid" id="main-grid" :class="{loading:isloading}">
         <main-template :groups.sync="groups" :redrawgroups.sync="redrawgroups"
-                       :selectedpatients.sync="selectedpatients" :patientmap="patientmap" :samplemap="samplemap"
+                       :selectedpatients.sync="selectedpatients"
                        :selectedsamples.sync="selectedsamples"
                        :hasfilters.sync="hasfilters" :customfilter.sync="customfilter"></main-template>
     </div>
@@ -156,25 +129,29 @@
 
 <script>
     $(document).ready(function () {
-
         //Include style variables
         window.style = {
             vars: {}
         };
+        iViz.vue.manage.init();
         $.get('js/src/dashboard/resources/vars.json')
-            .then(function (data) {
+            .then(function(data) {
                 window.style.vars = data;
                 window.style.vars.survivalWidth = 320;
                 window.style.vars.survivalHeight = 320;
                 window.style.vars.barchartWidth = 350;
                 window.style.vars.barchartHeight = 120;
-            })
-
-        iViz.data.init('http://localhost:8080/cbioportal', [window.cancerStudyId], iViz.init);
+            });
+        window.cbioURL = window.location.origin + '/cbioportal';
+        window.mutationProfileId = window.mutationProfileId;
+        window.cnaProfileId = window.cnaProfileId;
+        window.case_set_id = window.caseSetId;
         
+        iViz.data.init(window.cbioURL, [window.cancerStudyId], iViz.init);
+
         QueryByGeneTextArea.init('#query-by-gene-textarea', function(genes) {
             iViz.vue.manage.getInstance().$broadcast('gene-list-updated',genes);
         });
-        
+
     });
 </script>
