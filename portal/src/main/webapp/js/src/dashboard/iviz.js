@@ -1002,15 +1002,15 @@ function QueryByGeneUtil() {
     }
 
     // fields required for the study-view and their defaults to be able to query
-    this.addStudyViewFields = function () {
-        var formId = "#study-view-form";
+    this.addStudyViewFields = function (cancerStudyId, mutationProfileId, cnaProfileId) {
+        var formId = "#iviz-form";
         addFormField(formId, "gene_set_choice", "user-defined-list");
         addFormField(formId, "gene_list", QueryByGeneTextArea.getGenes());
 
-        addFormField(formId, "cancer_study_list", window.cancerStudyId);
+        addFormField(formId, "cancer_study_list", cancerStudyId);
         addFormField(formId, "Z_SCORE_THRESHOLD", 2.0);
-        addFormField(formId, "genetic_profile_ids_PROFILE_MUTATION_EXTENDED", window.mutationProfileId);
-        addFormField(formId, "genetic_profile_ids_PROFILE_COPY_NUMBER_ALTERATION", window.cnaProfileId);
+        addFormField(formId, "genetic_profile_ids_PROFILE_MUTATION_EXTENDED", mutationProfileId);
+        addFormField(formId, "genetic_profile_ids_PROFILE_COPY_NUMBER_ALTERATION", cnaProfileId);
         addFormField(formId, "clinical_param_selection", null);
         addFormField(formId, "data_priority", 0);
         addFormField(formId, "tab_index", "tab_visualize");
@@ -1233,25 +1233,26 @@ var iViz = (function (_, $) {
   var data_;
   var vm_;
   var grid_;
+  var tableData_ = [];
+  var groupFiltersMap_ = {};
 
   return {
 
-    init: function (_rawDataJson, _inputSampleList, _inputPatientList) {
+    init: function (_rawDataJSON, _inputSampleList, _inputPatientList) {
 
       vm_ = iViz.vue.manage.getInstance();
 
-      vm_.isloading = false;
-      data_ = _rawDataJson;
+      data_ = _rawDataJSON;
 
       if (_inputSampleList !== undefined && _inputPatientList !== undefined) {
-        var _sampleData = _.filter(data_.groups.sample.data, function (_dataObj) {
+        var _sampleData = _.filter(_data.groups.sample.data, function (_dataObj) {
           return $.inArray(_dataObj['sample_id'], _inputSampleList) !== -1
         });
         var _sampleDataIndices = {};
         for (var _i = 0; _i < _sampleData.length; _i++) {
           _sampleDataIndices[_sampleData[_i].sample_id] = _i;
         }
-        var _patientData = _.filter(data_.groups.patient.data, function (_dataObj) {
+        var _patientData = _.filter(_data.groups.patient.data, function (_dataObj) {
           return $.inArray(_dataObj['patient_id'], _inputPatientList) !== -1
         });
         var _patientDataIndices = {};
@@ -1265,70 +1266,287 @@ var iViz = (function (_, $) {
         data_.groups.sample.data_indices.sample_id = _sampleDataIndices;
       }
 
-      // ---- generating data matrix & fill the empty slots ----
-      _.each(data_.groups.patient.data, function (_dataObj) {
-        _.each(data_.groups.patient.attr_meta, function (meta) {
-          if (!_dataObj.hasOwnProperty(meta['attr_id'])) {
-            if(meta['view_type'] === 'table'){
-              _dataObj[meta['attr_id']] = [];
-            }
-            else{
-              _dataObj[meta['attr_id']] = 'NA';
-            }
-          }
-        });
-      });
-      _.each(data_.groups.sample.data, function (_dataObj) {
-        _.each(data_.groups.sample.attr_meta, function (meta) {
-          if (!_dataObj.hasOwnProperty(meta['attr_id'])) {
-            if(meta['view_type'] === 'table'){
-              _dataObj[meta['attr_id']] = [];
-            }
-            else{
-              _dataObj[meta['attr_id']] = 'NA';
-            }
-          }
-        });
-      });
+      var _patientIds = _.keys(data_.groups.patient.data_indices.patient_id);
+      var _sampleIds = _.keys(data_.groups.sample.data_indices.sample_id);
 
-      var _patientIds = _.uniq(_.pluck(data_.groups.patient.data, 'patient_id'));
-      var _sampleIds = _.uniq(_.pluck(data_.groups.sample.data, 'sample_id'));
-
+      var chartsCount = 0;
+      var groupAttrs = [];
+      var group = {};
+      var charts = {};
       var groups = [];
-      var id_ = 1;
-      for (var count = 0; count < Math.ceil(data_.groups.patient.attr_meta.length / 31); count++) {
-        var group = {};
-        var lowerLimit = count + (count * 31);
-        var upperLimit = lowerLimit + 31;
-        group.attributes = data_.groups.patient.attr_meta.slice(lowerLimit, upperLimit);
-        group.data = data_.groups.patient.data;
-        group.indices = data_.groups.patient.data_indices.patient_id;
-        group.type = 'patient';
-        group.id = group.type + '_' + id_;
-        groups.push(group);
-        id_++;
-      }
-      id_ = 1;
-      for (var count = 0; count < Math.ceil(data_.groups.sample.attr_meta.length / 31); count++) {
-        var lowerLimit = count + (count * 31);
-        var upperLimit = lowerLimit + 31;
-        var group = {};
-        group.attributes = data_.groups.sample.attr_meta.slice(lowerLimit, upperLimit);
-        group.data = data_.groups.sample.data;
-        group.indices = data_.groups.sample.data_indices.sample_id;
-        group.type = 'sample';
-        group.id = group.type + '_' + id_;
-        groups.push(group);
-        id_++;
-      }
 
+      // group.data = data_.groups.patient.data;
+      group.type = 'patient';
+      group.id = vm_.groupCount;
+      group.selectedcases = [];
+      group.hasfilters = false;
+      _.each(data_.groups.patient.attr_meta,function(attrData){
+        attrData.group_type = group.type;
+        if(attrData.view_type=='table'){
+          tableData_[attrData.attr_id]=attrData['gene_list'];
+          attrData.gene_list = undefined;
+        }
+        if(chartsCount<31){
+          if(attrData.show){
+            attrData.group_id = group.id;
+            groupAttrs.push(attrData);
+            chartsCount++;
+          }
+        }else{
+          attrData.show = false;
+        }
+        charts[attrData.attr_id]=attrData;
+      });
+      group.attributes = groupAttrs;
+      groups.push(group);
+
+      chartsCount = 0;
+      groupAttrs = [];
+      group = {};
+      vm_.groupCount = vm_.groupCount+1;
+      //group.data = data_.groups.sample.data;
+      group.type = 'sample';
+      group.id = vm_.groupCount;
+      group.selectedcases = [];
+      group.hasfilters = false;
+      _.each(data_.groups.sample.attr_meta,function(attrData){
+        attrData.group_type = group.type;
+        if(attrData.view_type=='table'){
+          tableData_[attrData.attr_id]=attrData['gene_list'];
+          attrData.gene_list = undefined;
+        }
+        if(chartsCount<31){
+          if(attrData.show){
+            attrData.group_id = group.id;
+            groupAttrs.push(attrData);
+            chartsCount++;
+          }
+        }else{
+          attrData.show = false;
+        }
+        charts[attrData.attr_id]=attrData;
+      });
+      vm_.groupCount = vm_.groupCount+1;
+      group.attributes = groupAttrs;
+      groups.push(group);
+
+
+
+      vm_.isloading = false;
       vm_.selectedsamples = _sampleIds;
       vm_.selectedpatients = _patientIds;
-      vm_.patientmap = data_.groups.group_mapping.patient.sample;
-      vm_.samplemap = data_.groups.group_mapping.sample.patient;
+      // vm_.patientmap = data_.groups.group_mapping.patient.sample;
+      // vm_.samplemap = data_.groups.group_mapping.sample.patient;
       vm_.groups = groups;
-    }, // ---- close init function ----
+      vm_.charts = charts;
 
+
+    }, // ---- close init function ----groups
+    setGroupFilteredCases : function(groupId_, filters_){
+      groupFiltersMap_[groupId_] = filters_;
+    },
+    getGroupFilteredCases : function(groupId_){
+      return groupFiltersMap_[groupId_];
+    },deleteGroupFilteredCases : function(groupId_){
+      groupFiltersMap_[groupId_] = undefined;
+    },
+    getAttrData : function(type, attr){
+      var _data = {};
+      var toReturn_ = [];
+      if(type === 'sample'){
+        _data = data_.groups.sample.data;
+      }else if(type === 'patient'){
+        _data = data_.groups.patient.data;
+      }
+      if(attr !== undefined){
+        _.each(_data,function(val){
+          if(val[attr] !== undefined){
+            toReturn_.push(val[attr]);
+          }
+        });
+      }else{
+        toReturn_ = _data
+      }
+      return toReturn_;
+    },
+    getTableData : function(attrId) {
+      return tableData_[attrId];
+    },
+    getCompleteData : function(){
+      return data_;
+    },
+    getCasesMap : function(type){
+      if(type === 'sample'){
+        return data_.groups.group_mapping.sample.patient;
+      }else{
+        return data_.groups.group_mapping.patient.sample;
+      }
+    },
+    getCaseIndices : function(type){
+      if(type === 'sample'){
+        return data_.groups.sample.data_indices.sample_id;
+      }else{
+        return data_.groups.patient.data_indices.patient_id;
+      }
+    },
+    openCases:function(){
+      var studyId = '';
+      var possible = true;
+      var selectedCases_ = vm_.selectedpatients;
+      var caseIndices_ =this.getCaseIndices('patient');
+      var patientData_ = data_.groups.patient.data;
+
+      $.each(selectedCases_,function(key,caseId){
+        if(key === 0){
+          studyId = patientData_[caseIndices_[caseId]]['study_id'];
+        }else{
+          if(studyId !== patientData_[caseIndices_[caseId]]['study_id']){
+            possible = false;
+            return false;
+          }
+        }
+      });
+      if(possible){
+        var _selectedPatientIds = selectedCases_.sort();
+        var _url =  window.cbioURL+"/case.do?cancer_study_id="+
+          studyId+
+          "&case_id="+_selectedPatientIds[0]+
+          "#nav_case_ids="+_selectedPatientIds.join(",");
+        window.open(_url);
+      }else{
+        new Notification().createNotification('This feature is not available to multiple studies for now!', {message_type: 'info'});
+      }
+    },
+    downloadCaseData:function(){
+      var content = '';
+      var sampleIds_ = vm_.selectedsamples;
+      var attr = {};
+
+      attr['CANCER_TYPE_DETAILED']='Cancer Type Detailed';
+      attr['CANCER_TYPE']='Cancer Type';
+      attr['study_id']='Study ID';
+      attr['patient_id']='Patient ID';
+      attr['sample_id']='Sample ID';
+      attr['mutated_genes']='With Mutation Data';
+      attr['cna_details']='With CNA Data';
+
+      var arr = [];
+      var attrL = 0, arrL = 0;
+      var strA = [];
+
+      var sampleAttr_ = data_.groups.sample.attr_meta;
+      var patientAttr_ = data_.groups.patient.attr_meta;
+
+      _.each(sampleAttr_,function(_attr){
+        if(attr[_attr.attr_id] === undefined && 'scatter_plot' !== _attr.view_type)
+          attr[_attr.attr_id] = _attr.display_name
+      });
+
+      _.each(patientAttr_,function(_attr){
+        if(attr[_attr.attr_id] === undefined && 'survival' !== _attr.view_type)
+          attr[_attr.attr_id] = _attr.display_name
+      });
+
+      attrL = attr.length;
+      _.each(attr,function(displayName,attrId){
+        strA.push(displayName || 'Unknown');
+      });
+      content = strA.join('\t');
+      strA.length =0;
+      var sampleIndices_ = data_.groups.sample.data_indices.sample_id;
+      var patienIndices_ = data_.groups.patient.data_indices.patient_id;
+      var sampleData_ = data_.groups.sample.data;
+      var patientData_ = data_.groups.patient.data;
+      var samplePatientMapping = data_.groups.group_mapping.sample.patient;
+      _.each(sampleIds_,function(sampleId){
+        var temp = sampleData_[sampleIndices_[sampleId]];
+        var temp1 = $.extend(true,temp,patientData_[patienIndices_[samplePatientMapping[sampleId][0]]]);
+        arr.push(temp1);
+      });
+
+      arrL = arr.length;
+
+      for (var i = 0; i < arrL; i++) {
+        strA.length = 0;
+        _.each(attr,function(displayName,attrId){
+          if('cna_details' === attrId || 'mutated_genes' === attrId ){
+            var temp = 'No';
+            if(arr[i][attrId] !== undefined)
+              temp = arr[i][attrId].length>0?'Yes':'No';
+            strA.push(temp);
+          }else{
+            strA.push(arr[i][attrId]);
+          }
+        });
+        content += '\r\n' + strA.join('\t');
+      }
+
+      var downloadOpts = {
+        filename: "study_view_clinical_data.txt",
+        contentType: "text/plain;charset=utf-8",
+        preProcess: false
+      };
+
+      cbio.download.initDownload(content, downloadOpts);
+
+    },
+    submitForm : function(){
+      var selectedCases_ = vm_.selectedsamples;
+      var studyId_ = '';
+      var possibleTOQuery = true;
+      _.each(selectedCases_,function(_caseId,key){
+        var index_ = data_.groups.sample.data_indices.sample_id[_caseId];
+        if(key === 0){
+          studyId_ = data_.groups.sample.data[index_]['study_id'];
+        }else{
+          if(studyId_ !== data_.groups.sample.data[index_]['study_id']){
+            possibleTOQuery = false;
+            return false;
+          }
+        }
+      });
+      if(possibleTOQuery){
+        $("#iviz-form").get(0).setAttribute('action',window.cbioURL+'/index.do');
+        $('<input>').attr({
+          type: 'hidden',
+          value: studyId_,
+          name: 'cancer_study_id'
+        }).appendTo("#iviz-form");
+
+        $('<input>').attr({
+          type: 'hidden',
+          value: window.case_set_id,
+          name: 'case_set_id'
+        }).appendTo("#iviz-form");
+
+        $('<input>').attr({
+          type: 'hidden',
+          value: selectedCases_.join(' '),
+          name: 'case_ids'
+        }).appendTo("#iviz-form");
+        
+        window.studyId = studyId_;
+        if(!QueryByGeneTextArea.isEmpty()) {
+          event.preventDefault();
+          QueryByGeneTextArea.validateGenes(this.decideSubmit, false);
+        }else{
+          $("#iviz-form").trigger("submit");
+        }
+      }else{
+        new Notification().createNotification('Querying multiple studies features is not yet ready!', {message_type: 'info'});
+      }
+    },
+    decideSubmit:function(allValid){
+      // if all genes are valid, submit, otherwise show a notification
+      if(allValid){
+        new QueryByGeneUtil().addStudyViewFields(window.studyId, window.mutationProfileId, window.cnaProfileId);
+        $("#iviz-form").trigger("submit");
+      }
+      else {
+        new Notification().createNotification("There were problems with the selected genes. Please fix.", {message_type: "danger"});
+        $("#query-by-gene-textarea").focus();
+      }
+    },
     stat: function () {
       var _result = {};
       _result['filters'] = {};
@@ -1414,61 +1632,9 @@ var iViz = (function (_, $) {
         _selectedPatients = _selectedPatients.concat(_arr);
       });
       iViz.init(data_, _selectedSamples, _selectedPatients);
-    },
-    resetAll: function () {
-      var _selectedStudyIds = []
-      var _currentURL = window.location.href;
-      if (_currentURL.indexOf("vc_id") !== -1 && _currentURL.indexOf("study_id") !== -1) {
-        var _vcId;
-        var query = location.search.substr(1);
-        _.each(query.split('&'), function (_part) {
-          var item = _part.split('=');
-          if (item[0] === 'vc_id') {
-            _vcId = item[1];
-          } else if (item[0] === 'study_id') {
-            _selectedStudyIds = _selectedStudyIds.concat(item[1].split(','));
-          }
-        });
-        $.getJSON(URL + _vcId, function (response) {
-          _selectedStudyIds = _selectedStudyIds.concat(_.pluck(response.data.virtualCohort.selectedCases, "studyID"));
-          var _selectedPatientIds = [];
-          _.each(_.pluck(response.data.virtualCohort.selectedCases, "patients"), function (_patientIds) {
-            _selectedPatientIds = _selectedPatientIds.concat(_patientIds);
-          });
-          var _selectedSampleIds = [];
-          _.each(_.pluck(response.data.virtualCohort.selectedCases, "samples"), function (_sampleIds) {
-            _selectedSampleIds = _selectedSampleIds.concat(_sampleIds);
-          });
-          iViz.init(_selectedStudyIds, _selectedSampleIds, _selectedPatientIds);
-        });
-      } else if (_currentURL.indexOf("vc_id") === -1 && _currentURL.indexOf("study_id") !== -1) {
-        _selectedStudyIds = _selectedStudyIds.concat(location.search.split('study_id=')[1].split(','));
-        iViz.init(_selectedStudyIds);
-      } else if (_currentURL.indexOf("vc_id") !== -1 && _currentURL.indexOf("study_id") === -1) {
-        var _vcId = location.search.split('vc_id=')[1];
-        $.getJSON(URL + _vcId, function (response) {
-          _selectedStudyIds = _selectedStudyIds.concat(_.pluck(response.data.virtualCohort.selectedCases, "studyID"));
-          var _selectedPatientIds = [];
-          _.each(_.pluck(response.data.virtualCohort.selectedCases, "patients"), function (_patientIds) {
-            _selectedPatientIds = _selectedPatientIds.concat(_patientIds);
-          });
-          var _selectedSampleIds = [];
-          _.each(_.pluck(response.data.virtualCohort.selectedCases, "samples"), function (_sampleIds) {
-            _selectedSampleIds = _selectedSampleIds.concat(_sampleIds);
-          });
-          iViz.init(_selectedStudyIds, _selectedSampleIds, _selectedPatientIds);
-        });
-      } else {
-        iViz.vue.manage.getInstance().initialize();
-        iViz.init(data_);
-      }
     }
   }
 }(window._, window.$));
-
-
-
-
 
 /*
  * Copyright (c) 2015 Memorial Sloan-Kettering Cancer Center.
@@ -1520,15 +1686,11 @@ var iViz = (function (_, $) {
             groups: [],
             selectedsamples: [],
             selectedpatients: [],
-            patientmap: [],
-            samplemap: [],
             selectedgenes: [],
-            showVCList: false,
             addNewVC: false,
             selectedPatientsNum: 0,
             selectedSamplesNum: 0,
             hasfilters: false,
-            virtualCohorts: [],
             isloading: true,
             redrawgroups:[],
             customfilter:{
@@ -1537,33 +1699,49 @@ var iViz = (function (_, $) {
               sampleIds:[],
               patientIds:[]
             },
-            initalLoad:true
+            charts: {},
+            groupCount:0,
+            updateSpecialCharts:false,
+            showSaveButton:true,
+            showManageButton:true,
+            userid:'DEFAULT',
+            stats:'',
+            updateStats:false,
+            highlightAllButtons:false,
+            highlightCaseButtons:false
           }, watch: {
+            'updateSpecialCharts':function(newVla,oldVal) {
+              var self_ = this;
+              //TODO: need to update setting timeout
+              var interval = setTimeout(function () {
+                clearInterval(interval);
+                self_.$broadcast('update-special-charts');
+              }, 500);
+            },
+            'updateStats':function(newVal){
+              this.stats = iViz.stat();
+            },
             'redrawgroups':function(newVal,oldVal){
               if(newVal.length>0){
-                _.each(this.groups, function(group){
-                  dc.redrawAll(group.id);
+                this.$broadcast('show-loader');
+                _.each(newVal, function(groupid){
+                  dc.redrawAll(groupid);
                 });
                 this.redrawgroups = [];
+                var self_ =this;
+                 this.$nextTick(function(){
+                   self_.updateSpecialCharts = !self_.updateSpecialCharts;
+                 });
+                
               }
             },
             'selectedsamples': function(newVal,oldVal) {
               if(newVal.length!==oldVal.length){
-                if(!this.initalLoad) {
-                  this.$broadcast('selected-sample-update', newVal);
-                }else{
-                  this.initalLoad = false;
-                }
                 this.selectedSamplesNum = newVal.length;
               }
             },
             'selectedpatients': function(newVal,oldVal) {
               if(newVal.length!==oldVal.length){
-                if(!this.initalLoad) {
-                  this.$broadcast('survival-update', newVal);
-                }else{
-                  this.initalLoad = false;
-                }
                 this.selectedPatientsNum = newVal.length;
               }
             }
@@ -1574,28 +1752,18 @@ var iViz = (function (_, $) {
               this.updateGeneList(geneList,false);
             },'set-selected-cases' : function(selectionType, selectedCases){
               this.setSelectedCases(selectionType, selectedCases);
+            },'remove-chart':function(attrId,groupId){
+              this.removeChart(attrId,groupId)
             }
           },methods: {
-            initialize: function() {
-                this.groups = [];
-                this.selectedsamples = [];
-                this.selectedpatients = [];
-                this.selectedgenes = [];
-                this.patientmap = [];
-                this.samplemap = [];
-                this.showVCList = false;
-                this.addNewVC = false;
-                this.selectedPatientsNum = 0;
-                this.selectedSamplesNum = 0;
-                this.hasfilters = false;
-                this.virtualCohorts = [];
-                this.isloading = true;
-                this.customfilter ={
-                  display_name:"Custom",
-                  type:"",
-                  sampleIds:[],
-                  patientIds:[]
-                }
+            openCases:function(){
+              iViz.openCases();
+            },
+            downloadCaseData:function(){
+              iViz.downloadCaseData();
+            },
+            submitForm:function(){
+              iViz.submitForm();
             },
             clearAll: function(){
               if(this.customfilter.patientIds.length>0||this.customfilter.sampleIds.length>0){
@@ -1603,7 +1771,58 @@ var iViz = (function (_, $) {
                 this.customfilter.patientIds = [];
                 this.$broadcast('update-all-filters');
               }
-              this.$broadcast('clear-all-filters');
+              this.$broadcast('clear-all-groups');
+              var self_ = this;
+              this.hasfilters = false;
+              self_.$nextTick(function () {
+                self_.selectedsamples =  _.keys(iViz.getCasesMap('sample'));
+                self_.selectedpatients = _.keys(iViz.getCasesMap('patient'));
+                self_.$broadcast('update-special-charts');
+                _.each(this.groups,function(group){
+                  dc.redrawAll(group.id);
+                });
+              });
+            },
+            addChart: function(attrId){
+              var self_ = this;
+              var attrData = self_.charts[attrId];
+              var _attrAdded = false;
+              var _group = {};
+              _.each(self_.groups,function(group){
+                if(group.type === attrData.group_type){
+                  if(group.attributes.length<31){
+                    attrData.group_id = group.id;
+                    group.attributes.push(attrData);
+                    _attrAdded = true;
+                    return false;
+                  }else{
+                    _group = group;
+                  }
+                }
+              });
+              if(!_attrAdded){
+                var newgroup_ = {};
+                var groupAttrs = [];
+                groupAttrs.push(attrData);
+                // newgroup_.data = _group.data;
+                newgroup_.type = _group.type;
+                newgroup_.id = self_.groupCount;
+                self_.groupCount = self_.groupCount+1;
+                newgroup_.attributes = groupAttrs;
+                self_.groups.push(newgroup_);
+              }
+
+            },
+            removeChart: function(attrId){
+              var self = this;
+              var attrData = self.charts[attrId];
+              var attributes = self.groups[attrData.group_id].attributes;
+              attributes.$remove(attrData);
+
+              self.$nextTick(function () {
+                self.$broadcast('update-grid',true);
+                $("#iviz-add-chart").trigger("chosen:updated");
+              })
             },
             updateGeneList : function(geneList,reset){
               var self_ = this;
@@ -1628,7 +1847,7 @@ var iViz = (function (_, $) {
               var unmappedCaseIds = [];
 
               if (radioVal === 'patient') {
-                var patientIdsList = Object.keys(vmInstance_.patientmap);
+                var patientIdsList = Object.keys(iViz.getCasesMap('patient'));
                 _.each(selectedCases, function (id) {
                   if(patientIdsList.indexOf(id) !== -1){
                     selectedCaseIds.push(id);
@@ -1637,7 +1856,7 @@ var iViz = (function (_, $) {
                   }
                 });
               } else {
-                var sampleIdsList = Object.keys(vmInstance_.samplemap);
+                var sampleIdsList = Object.keys(iViz.getCasesMap('sample'));
                 _.each(selectedCases, function (id) {
                   if(sampleIdsList.indexOf(id) !== -1){
                     selectedCaseIds.push(id);
@@ -1656,13 +1875,13 @@ var iViz = (function (_, $) {
                 new Notification().createNotification(selectedCaseIds.length + ' case(s) selected.', {message_type: 'info'});
               }
 
-              $('#study-view-header-right-1').qtip('toggle');
+              $('#iviz-header-right-1').qtip('toggle');
               if(selectedCaseIds.length > 0) {
                 this.clearAll();
                 var self_ = this;
                 Vue.nextTick(function () {
 
-                  $.each(self_.groups,function(key,group){
+                  _.each(self_.groups,function(group){
                     if(group.type === radioVal){
                       self_.hasfilters = true;
                       self_.customfilter.type = group.type;
@@ -1687,6 +1906,20 @@ var iViz = (function (_, $) {
                 this.virtualCohorts = iViz.session.utils.getVirtualCohorts();
               }
             });
+            $('.iviz-header-left-5').qtip({
+              content: {text: 'Click to view the selected cases' },
+              style: { classes: 'qtip-light qtip-rounded qtip-shadow' },
+              show: {event: 'mouseover'},
+              hide: {fixed:true, delay: 100, event: 'mouseout'},
+              position: {my:'bottom center', at:'top center', viewport: $(window)}
+            });
+            $('#iviz-header-left-6').qtip({
+              content: {text: 'Click to download the selected cases' },
+              style: { classes: 'qtip-light qtip-rounded qtip-shadow' },
+              show: {event: 'mouseover'},
+              hide: {fixed:true, delay: 100, event: 'mouseout'},
+              position: {my:'bottom center', at:'top center', viewport: $(window)}
+            })
           }
         });
       },
@@ -1711,24 +1944,31 @@ var iViz = (function (_, $) {
 
   Vue.directive('select', {
     twoWay: true,
-    params: ['groups'],
+    params: ['charts'],
+    paramWatchers: {
+      charts: function (val, oldVal) {
+        $("#iviz-add-chart").trigger("chosen:updated");
+      }
+    },
     bind: function() {
       var self = this;
       $(this.el).chosen({
           width: '30%'
         })
         .change(function() {
-            if (this.value !== '') {
-              var value = this.el.value.split('---');
-              self.params.groups[value[0]].attributes[value[1]].show = true
-            }
+              var value = this.el.value;
+              self.params.charts[value].show = true;
+              self.vm.addChart(this.el.value);
+              self.vm.$nextTick(function () {
+                $("#iviz-add-chart").trigger("chosen:updated");
+              });
           }.bind(this)
         );
     }
   });
 
   // This is an example to add sample to a virtual cohort from scatter plot
-  iViz.vue.vmScatter = (function() {
+/*  iViz.vue.vmScatter = (function() {
     var vmInstance_;
 
     return {
@@ -1757,7 +1997,7 @@ var iViz = (function (_, $) {
         return vmInstance_;
       }
     };
-  })();
+  })();*/
 })(window.Vue, window.iViz, window.dc,window._);
 
 /*
@@ -1876,17 +2116,31 @@ var iViz = (function (_, $) {
     content.idMapping = function(mappingObj, inputCases) {
       var _selectedMappingCases = [];
       _selectedMappingCases.length = 0;
+      var resultArr_ = [];
+      var tempArr_ = {};
       _.each(inputCases, function(_case) {
-        if (Array.isArray(mappingObj[_case])) {
-          _.each(mappingObj[_case], function(_id) {
-            _selectedMappingCases.push(_id);
-          });
-        } else {
-          _selectedMappingCases.push(mappingObj[_case]);
-
+        _.each(mappingObj[_case],function(_caseSel){
+          if(tempArr_[_caseSel] === undefined){
+            tempArr_[_caseSel] = true;
+            resultArr_.push(_caseSel)
+          }
+        });
+        //_selectedMappingCases = _selectedMappingCases.concat(mappingObj[_case]);
+      });
+      return resultArr_;
+      //return content.unique(_selectedMappingCases);
+    };
+    
+    content.unique = function(arr_){
+      var resultArr_ = [];
+      var tempArr_ = {};
+      _.each(arr_,function(obj_){
+        if(tempArr_[obj_] === undefined){
+          tempArr_[obj_] = true;
+          resultArr_.push(obj_);
         }
       });
-      return _.uniq(_selectedMappingCases);
+      return resultArr_;
     };
 
     content.isRangeFilter = function(filterObj) {
@@ -1927,6 +2181,8 @@ var iViz = (function (_, $) {
         case 'scatterPlot':
           survivalChartDownload(fileType, content);
           break;
+        case 'table':
+          tableDownload(fileType, content);
         default:
           break;
       }
@@ -1943,10 +2199,20 @@ var iViz = (function (_, $) {
       return str;
     }
 
+    function tableDownload(fileType, content) {
+      switch (fileType) {
+        case 'tsv':
+          csvDownload(content.fileName, content.data);
+          break;
+        default:
+          break;
+      }
+    }
+
     function pieChartDownload(fileType, content) {
       switch (fileType) {
         case 'tsv':
-          csvDownload('test', content);
+          csvDownload(content.fileName || 'data', content.data);
           break;
         case 'svg':
           pieChartCanvasDownload(content, {
@@ -2311,7 +2577,7 @@ var iViz = (function (_, $) {
     function barChartDownload(fileType, content) {
       switch (fileType) {
         case 'tsv':
-          csvDownload('test', content);
+          csvDownload(content.fileName || 'data', content.data);
           break;
         case 'svg':
           barChartCanvasDownload(content, {
@@ -2333,6 +2599,46 @@ var iViz = (function (_, $) {
     function downloadTextFile(content, delimiter) {
 
     }
+
+    /**
+     * Finds the intersection elements between two arrays in a simple fashion.
+     * Should have O(n) operations, where n is n = MIN(a.length, b.length)
+     *
+     * @param a {Array} first array, must already be sorted
+     * @param b {Array} second array, must already be sorted
+     * @returns {Array}
+     */
+    content.intersection = function(a, b) {
+      var result = [], i = 0, j = 0, aL = a.length, bL = b.length, size = 0;
+      while (i < aL && j < bL) {
+        if (a[i] < b[j]) {
+          ++i;
+        }
+        else if (a[i] > b[j]) {
+          ++j;
+        }
+        else /* they're equal */
+        {
+          result.push(a[i]);
+          ++i;
+          ++j;
+        }
+      }
+
+      return result;
+    };
+
+    content.compare = function(arr1, arr2) {
+      if (arr1.length != arr2.length){
+        return false;
+      }else{
+        for (var i = 0; i < arr1.length; i++) {
+          if (arr1[i] !== arr2[i])
+            return false;
+        }
+      }
+      return true;
+    };
 
     return content;
   })();
@@ -2379,43 +2685,48 @@ var iViz = (function (_, $) {
 (function(iViz, $, _){
   iViz.sync = {};
   // syncing util: select samples or patients based on only samples/patients filters
-  iViz.sync.selectByFilters = function(filters, data, type) { // type: sample or patient
-    var _dupSelectedCasesArr = [];
+  iViz.sync.selectByFilters = function(filters, data) { // type: sample or patient
+    var _selectedCasesData = data;
     _.each(Object.keys(filters), function(_filterAttrId) {
     
-      var _singleAttrSelectedCases = [];
+      var tempData = _selectedCasesData;
+      _selectedCasesData=[];
+      var _singleAttrSelectedCases =[];
       var _filtersForSingleAttr = filters[_filterAttrId];
       if (iViz.util.isRangeFilter(_filtersForSingleAttr)) {
       
         var _filterRangeMin = parseFloat(_filtersForSingleAttr[0]);
         var _filterRangeMax = parseFloat(_filtersForSingleAttr[1]);
-        _.each(data, function(_dataObj) {
+        _.each(tempData, function(_dataObj) {
           if (_dataObj.hasOwnProperty(_filterAttrId)) {
             if (parseFloat(_dataObj[_filterAttrId]) <= _filterRangeMax && parseFloat(_dataObj[_filterAttrId]) >= _filterRangeMin) {
-              _singleAttrSelectedCases.push(type === 'sample'? _dataObj.sample_id: _dataObj.patient_id);
+              _selectedCasesData.push(_dataObj);
             }
           }
         });
       
       } else {
-        _.each(data, function(_dataObj) {
+        _.each(tempData, function(_dataObj) {
           if (_dataObj.hasOwnProperty(_filterAttrId)) {
             if ($.inArray(_dataObj[_filterAttrId], _filtersForSingleAttr) !== -1) {
-              _singleAttrSelectedCases.push(type === 'sample'? _dataObj.sample_id: _dataObj.patient_id);
+              _selectedCasesData.push(_dataObj);
             }
           }
         });
       }
-      _dupSelectedCasesArr.push(_singleAttrSelectedCases);
     });
-    var _selectedCasesByFiltersOnly = _.pluck(data, type === 'sample'? 'sample_id': 'patient_id');
-    if (_dupSelectedCasesArr.length !== 0) {
-      _.each(_dupSelectedCasesArr, function(_dupSelectedCases) {
-        _selectedCasesByFiltersOnly = _.intersection(_selectedCasesByFiltersOnly, _dupSelectedCases);
-      });
-    }
-    return _selectedCasesByFiltersOnly;
+    return _selectedCasesData;
   };
+
+  iViz.sync.selectByCases = function(type_, data_, cases_) {
+    var caseIndices = iViz.getCaseIndices(type_);
+    var resultData_ = [];
+    _.each(cases_, function(val){
+      resultData_.push(data_[caseIndices[val]]);
+    });
+    return resultData_;
+  };
+  
   return iViz.sync;
 }(window.iViz, window.$, window._));
 
@@ -2538,11 +2849,11 @@ var iViz = (function (_, $) {
 'use strict';
 (function(Vue, dc, iViz, $) {
   Vue.component('mainTemplate', {
-    template: ' <chart-group :data.sync="group.data" :hasfilters="hasfilters"  :redrawgroups.sync="redrawgroups"   :id="group.id"   :type.sync="group.type" :mappedpatients.sync="patientsync"' +
-    ' :mappedsamples.sync="samplesync" :attributes.sync="group.attributes" :indices="group.indices"' +
+    template: ' <chart-group :redrawgroups.sync="redrawgroups" :id="group.id" :type="group.type" :mappedpatients="patientsync"' +
+    ' :mappedsamples="samplesync" :attributes.sync="group.attributes"' +
     ' v-for="group in groups"></chart-group> ',
     props: [
-      'groups', 'selectedsamples', 'selectedpatients', 'samplemap', 'patientmap', 'hasfilters', 'redrawgroups', 'customfilter'
+      'groups', 'selectedsamples', 'selectedpatients', 'hasfilters', 'redrawgroups', 'customfilter'
     ], data: function() {
       return {
         messages: [],
@@ -2550,15 +2861,27 @@ var iViz = (function (_, $) {
         samplesync: [],
         grid_: '',
         completePatientsList: [],
-        completeSamplesList:[]
+        completeSamplesList: [],
+        selectedPatientsByFilters : [],
+        selectedSamplesByFilters : [],
+        initialized : false
       }
     }, watch: {
-      'patientmap':function(val){
+      'groups': function(){
+        if(!this.initialized){
+          this.initialized = true;
+          this.selectedPatientsByFilters = _.keys(iViz.getCasesMap('patient')).sort();
+          this.selectedSamplesByFilters = _.keys(iViz.getCasesMap('sample')).sort();
+          this.completePatientsList = _.keys(iViz.getCasesMap('patient')).sort();
+          this.completeSamplesList = _.keys(iViz.getCasesMap('sample')).sort();
+        }
+      },
+      /*'patientmap':function(val){
         this.completePatientsList =  _.keys(val);
       },
       'samplemap' : function(val){
         this.completeSamplesList =  _.keys(val);
-      },
+      },*/
       'messages': function(val) {
         _.each(this.groups, function(group) {
           dc.renderAll(group.id);
@@ -2587,6 +2910,11 @@ var iViz = (function (_, $) {
       }
     },
     events: {
+      'clear-all-groups':function(){
+        this.selectedPatientsByFilters = [];
+        this.selectedSamplesByFilters = [];
+        this.$broadcast('clear-group');
+      },
       'update-grid': function(reload) {
         if(reload){
           this.updateGrid()
@@ -2598,87 +2926,114 @@ var iViz = (function (_, $) {
         // TODO:check for all charts loaded
         this.messages.push(msg);
       },
-      'update-all-filters': function(updateType) {
-        var _selectedPatientsByFiltersOnly = this.completePatientsList;
-        var _selectedSamplesByFiltersOnly = this.completeSamplesList;
+      'update-all-filters':function(updateType_){
+        var _allSelectedPatientIdsByFilters = [];
+        var _allSelectedSampleIdsByFilters = [];
+        var self_ = this;
         var _hasFilters = false;
-        _.each(this.groups, function(group) {
-          var filters_ = [], _scatterPlotSel = [], _tableSel = [];
-          _.each(group.attributes, function(attributes) {
-            if(attributes.show){
+
+        if (self_.customfilter.patientIds.length > 0) {
+          _hasFilters = true;
+          _allSelectedPatientIdsByFilters = self_.customfilter.patientIds;
+        }
+        if (self_.customfilter.sampleIds.length > 0) {
+          _hasFilters = true;
+          _allSelectedSampleIdsByFilters = self_.customfilter.sampleIds;
+        }
+
+        _.each(self_.groups, function (group) {
+          _.each(group.attributes, function (attributes) {
+            if (attributes.show) {
               if (attributes.filter.length > 0) {
                 _hasFilters = true;
-                if (attributes.view_type === 'scatter_plot') {
-                  if(_scatterPlotSel.length !== 0){
-                    _scatterPlotSel = _.intersection(_scatterPlotSel,attributes.filter);
-                  }else{
-                    _scatterPlotSel =attributes.filter;
-                  }
-                } else if (attributes.view_type === 'table') {
-                  if(_tableSel.length !== 0){
-                    _tableSel = _.intersection(_tableSel,attributes.filter);
-                  }else{
-                    _tableSel =attributes.filter;
-                  }
-                } else{
-                  filters_[attributes.attr_id] = attributes.filter;
-                }
               }
             }
           });
-          var  _selectedCases = iViz.sync.selectByFilters(filters_, group.data, group.type);
-          if (_scatterPlotSel.length !== 0) {
-            _selectedSamplesByFiltersOnly =
-              _.intersection(_selectedSamplesByFiltersOnly, _scatterPlotSel);
-          }
-          if (_tableSel.length !== 0) {
-            _selectedSamplesByFiltersOnly =
-              _.intersection(_selectedSamplesByFiltersOnly, _tableSel);
-          }
-          if (group.type === 'sample') {
-            _selectedSamplesByFiltersOnly =
-              _.intersection(_selectedSamplesByFiltersOnly, _selectedCases);
-          }
-          if (group.type === 'patient') {
-            _selectedPatientsByFiltersOnly =
-              _.intersection(_selectedPatientsByFiltersOnly, _selectedCases);
+
+          var _groupFilteredCases = iViz.getGroupFilteredCases(group.id);
+          if (_groupFilteredCases !== undefined && _groupFilteredCases.length > 0) {
+            if (updateType_ === group.type) {
+              if (updateType_ === 'patient') {
+                if (_groupFilteredCases.length !== self_.completePatientsList.length)
+                  if (_allSelectedPatientIdsByFilters.length === 0) {
+                    _allSelectedPatientIdsByFilters = _groupFilteredCases;
+                  } else {
+                    _allSelectedPatientIdsByFilters = iViz.util.intersection(_allSelectedPatientIdsByFilters, _groupFilteredCases);
+                  }
+              } else {
+                if (_groupFilteredCases.length !== self_.completeSamplesList.length)
+                  if (_allSelectedSampleIdsByFilters.length === 0) {
+                    _allSelectedSampleIdsByFilters = _groupFilteredCases;
+                  } else {
+                    _allSelectedSampleIdsByFilters = iViz.util.intersection(_allSelectedSampleIdsByFilters, _groupFilteredCases);
+                  }
+              }
+            }
           }
         });
-        this.hasfilters = _hasFilters;
-        if(this.customfilter.patientIds.length>0||this.customfilter.sampleIds.length>0) {
-          this.hasfilters = true;
-            _selectedPatientsByFiltersOnly =
-              _.intersection(_selectedPatientsByFiltersOnly, this.customfilter.patientIds);
-            _selectedSamplesByFiltersOnly =
-              _.intersection(_selectedSamplesByFiltersOnly, this.customfilter.sampleIds);
-        }
-        
-        var mappedSelectedSamples = iViz.util.idMapping(this.patientmap,
-          _selectedPatientsByFiltersOnly);
-        var resultSelectedSamples = _.intersection(mappedSelectedSamples,
-          _selectedSamplesByFiltersOnly);
-        var resultSelectedPatients = iViz.util.idMapping(this.samplemap,
-          resultSelectedSamples);
-        if (updateType === 'patient') {
-          this.patientsync = resultSelectedPatients;
-          this.samplesync = iViz.util.idMapping(this.patientmap,
-            _selectedPatientsByFiltersOnly);
+        self_.hasfilters = _hasFilters;
+
+        var _resultSelectedSamples = [];
+        var _resultSelectedPatients = [];
+        if (updateType_ === 'patient') {
+          self_.selectedPatientsByFilters = _allSelectedPatientIdsByFilters.sort();
+          var _selectedSamplesByFiltersOnly = self_.selectedSamplesByFilters;
+          if(_selectedSamplesByFiltersOnly.length ===0){
+            _selectedSamplesByFiltersOnly = self_.completeSamplesList;
+          }
+          if (_allSelectedPatientIdsByFilters.length === 0) {
+            self_.patientsync = [];
+            self_.samplesync = [];
+            _resultSelectedSamples = iViz.util.intersection(self_.completeSamplesList,
+              _selectedSamplesByFiltersOnly);
+            _resultSelectedPatients = iViz.util.idMapping(iViz.getCasesMap('sample'), _resultSelectedSamples);
+          } else {
+            var _mappedSelectedSamples = iViz.util.idMapping(iViz.getCasesMap('patient'), _allSelectedPatientIdsByFilters);
+            _mappedSelectedSamples.sort();
+            _resultSelectedSamples = iViz.util.intersection(_mappedSelectedSamples,
+              _selectedSamplesByFiltersOnly);
+            _resultSelectedPatients = iViz.util.idMapping(iViz.getCasesMap('sample'), _resultSelectedSamples);
+            self_.patientsync = _allSelectedPatientIdsByFilters;
+            self_.samplesync = _mappedSelectedSamples;
+
+          }
         } else {
-          this.patientsync = iViz.util.idMapping(this.samplemap,
-            _selectedSamplesByFiltersOnly);
-          this.samplesync = resultSelectedSamples;
+          self_.selectedSamplesByFilters = _allSelectedSampleIdsByFilters.sort();
+          var _selectedPatientsByFiltersOnly = self_.selectedPatientsByFilters;
+          if(_selectedPatientsByFiltersOnly.length ===0){
+            _selectedPatientsByFiltersOnly = self_.completePatientsList;
+          }
+          if (_allSelectedSampleIdsByFilters.length === 0) {
+            self_.patientsync = [];
+            self_.samplesync = [];
+            _resultSelectedPatients = iViz.util.intersection(self_.completePatientsList,
+              _selectedPatientsByFiltersOnly);
+            _resultSelectedSamples = iViz.util.idMapping(iViz.getCasesMap('patient'), _resultSelectedPatients);
+          } else {
+            var _mappedSelectedPatients = iViz.util.idMapping(iViz.getCasesMap('sample'), _allSelectedSampleIdsByFilters);
+            _mappedSelectedPatients.sort();
+            _resultSelectedPatients = iViz.util.intersection(_mappedSelectedPatients,
+              _selectedPatientsByFiltersOnly);
+            _resultSelectedSamples = iViz.util.idMapping(iViz.getCasesMap('patient'), _resultSelectedPatients);
+            self_.patientsync = _mappedSelectedPatients;
+            self_.samplesync = _allSelectedSampleIdsByFilters;
+          }
         }
-        this.selectedsamples = resultSelectedSamples;
-        this.selectedpatients = resultSelectedPatients;
+
+        self_.$nextTick(function () {
+          self_.selectedsamples = _resultSelectedSamples;
+          self_.selectedpatients = _resultSelectedPatients;
+        });
+       
       },
       'update-custom-filters': function() {
         if (this.customfilter.type === 'patient') {
           this.patientsync = this.customfilter.patientIds;
-          this.samplesync = iViz.util.idMapping(this.patientmap,
+          this.samplesync = iViz.util.idMapping(iViz.getCasesMap('patient'),
             this.patientsync);
           this.customfilter.sampleIds = this.samplesync;
         } else {
-          this.patientsync = iViz.util.idMapping(this.samplemap,
+          this.patientsync = iViz.util.idMapping(iViz.getCasesMap('sample'),
             this.customfilter.sampleIds);
           this.samplesync = this.customfilter.sampleIds;
           this.customfilter.patientIds = this.patientsync;
@@ -2728,42 +3083,30 @@ var iViz = (function (_, $) {
  */
 'use strict';
 (function(Vue, dc, iViz, $) {
-  var settings_ = {
-    pieChart: {
-      width: 150,
-      height: 150,
-      innerRadius: 15
-    },
-    barChart: {
-      width: 400,
-      height: 180
-    },
-    transitionDuration: iViz.opts.dc.transitionDuration
-  };
   Vue.component('chartGroup', {
     template: ' <div is="individual-chart"' +
-    ' :ndx="ndx" :data="data"  :groupid="groupid"' +
-    ' :attributes.sync="attribute" v-for="attribute in attributes" :indices="indices"></div>',
+    ' :ndx="ndx" :groupid="groupid"' +
+    ' :attributes.sync="attribute" v-for="attribute in attributes"></div>',
     props: [
-      'data', 'attributes', 'type', 'mappedsamples', 'id',
-      'mappedpatients', 'groupid', 'redrawgroups', 'hasfilters', 'indices'
+      'attributes', 'type', 'mappedsamples', 'id',
+      'mappedpatients', 'groupid', 'redrawgroups'
     ], created: function() {
-      var ndx_ = crossfilter(this.data);
-      var invisibleBridgeChart_ = iViz.bridgeChart.init(ndx_, settings_,
-        this.type, this.id);
+      //TODO: update this.data
+      var data_ = iViz.getAttrData(this.type);
+      var ndx_ = crossfilter(data_);
+      var attrId = this.type==='patient'?'patient_id':'sample_id';
+      this.invisibleBridgeDimension =  ndx_.dimension(function (d) { return d[attrId]; });
       this.groupid = this.id;
       this.ndx = ndx_;
-      this.chartInvisible = invisibleBridgeChart_;
+      this.invisibleChartFilters = [];
     }, destroyed: function() {
-      this.chartInvisible.resetSvg();
-      var id_ = this.type + '_' + this.id + '_id_chart_div';
-      $('#' + id_).remove()
       dc.chartRegistry.clear(this.groupid);
     },
     data: function() {
       return {
         syncPatient: true,
-        syncSample: true
+        syncSample: true,
+        clearGroup:false
       }
     },
     watch: {
@@ -2773,12 +3116,8 @@ var iViz = (function (_, $) {
             this.updateInvisibleChart(val);
           }else {
             this.syncSample = true;
-            if(!this.hasfilters){
-              this.updateInvisibleChart(val);
-            }
           }
         }
-        this.redrawgroups.push(true);
       },
       'mappedpatients': function(val) {
         if (this.type === 'patient') {
@@ -2786,35 +3125,71 @@ var iViz = (function (_, $) {
             this.updateInvisibleChart(val);
           } else {
             this.syncPatient = true;
-            if(!this.hasfilters){
-              this.updateInvisibleChart(val);
-            }
           }
         }
-        this.redrawgroups.push(true);
       }
     },
     events: {
+      'clear-group':function(){
+        this.clearGroup = true;
+        this.invisibleBridgeDimension.filterAll();
+        this.invisibleChartFilters = [];
+        iViz.deleteGroupFilteredCases(this.id);
+        this.$broadcast('clear-chart-filters');
+        var self_ = this;
+        this.$nextTick(function(){
+          self_.clearGroup = false;
+        });
+      },
       'update-filters': function() {
-        this.syncPatient = false;
-        this.syncSample = false;
-        this.$dispatch('update-all-filters', this.type);
-      },
-      'update-samples': function(_sampleIds) {
-        this.syncPatient = false;
-        this.syncSample = false;
-        this.chartInvisible.filter(null);
-        this.chartInvisible.filter([_sampleIds]);
-        this.$dispatch('update-all-filters', this.type);
-      },
-      'update-samples-from-table':function() {
-        this.$dispatch('update-all-filters', this.type);
+        if(!this.clearGroup){
+          this.syncPatient = false;
+          this.syncSample = false;
+          var _filters = [], _caseSelect = [];
+          var attrId = this.type==='patient'?'patient_id':'sample_id';
+          if(this.invisibleChartFilters.length>0) {
+            this.invisibleBridgeDimension.filterAll();
+          }
+          var filteredCases = _.pluck(this.invisibleBridgeDimension.top(Infinity),attrId).sort();
+          //hackey way to check if filter selected filter cases is same as original case list
+          if(filteredCases.length !== this.ndx.size()){
+            iViz.setGroupFilteredCases(this.id, filteredCases);
+          }else{
+            iViz.deleteGroupFilteredCases(this.id)
+          }
+
+          if(this.invisibleChartFilters.length>0){
+            var filtersMap = {};
+            _.each(this.invisibleChartFilters,function(filter){
+              if(filtersMap[filter] === undefined){
+                filtersMap[filter] = true;
+              }
+            });
+            this.invisibleBridgeDimension.filterFunction(function(d){
+              return (filtersMap[d] !== undefined);
+            });
+          }
+          this.$dispatch('update-all-filters', this.type);
+        }
       }
     },
     methods: {
       updateInvisibleChart: function(val) {
-        this.chartInvisible.filter(null);
-        this.chartInvisible.filter([val]);
+        this.invisibleChartFilters = val;
+        var filtersMap = {};
+        if(val.length>0){
+          _.each(val,function(filter){
+            if(filtersMap[filter] === undefined){
+              filtersMap[filter] = true;
+            }
+          });
+          this.invisibleBridgeDimension.filterFunction(function(d){
+            return (filtersMap[d] !== undefined);
+          });
+        }else{
+          this.invisibleBridgeDimension.filterAll();
+        }
+        this.redrawgroups.push(this.id);
       }
     }
   });
@@ -2862,10 +3237,10 @@ var iViz = (function (_, $) {
     template: /*'<div v-if="attributes.show">' +*/
     '<component :is="currentView" :groupid="groupid"  v-show="attributes.show"' +
     ' :filters.sync="attributes.filter" v-if="attributes.show" ' +
-    ':ndx="ndx" :attributes.sync="attributes" :data="data" :indices="indices"></component>'
+    ':ndx="ndx" :attributes.sync="attributes"></component>'
     /*'</div>'*/,
     props: [
-      'data', 'ndx', 'attributes', 'groupid', 'indices'
+      'ndx', 'attributes', 'groupid'
     ],
     data: function() {
       var currentView = '';
@@ -2894,23 +3269,20 @@ var iViz = (function (_, $) {
       'attributes.show': function(newVal) {
         if (!newVal)
           this.$dispatch('update-grid',true)
-        $("#study-view-add-chart").trigger("chosen:updated");
+        $("#iviz-add-chart").trigger("chosen:updated");
       }
     },
     events: {
-      'close': function() {
+      'close': function () {
         this.attributes.show = false;
-      }/*,
-      'update-grid':function(){
-        this.$dispatch('update-grid')
-      }*/
-    }, ready: function() {
-      var _self = this;
-      _self.$on('clear-all-filters',function(){
-        if(_self.attributes.filter.length>0){
+        this.$dispatch('remove-chart', this.attributes.attr_id, this.attributes.group_id)
+      },
+      'clear-chart-filters': function () {
+        var _self = this;
+        if (_self.attributes.filter.length > 0) {
           _self.attributes.filter = [];
         }
-      })
+      }
     }
   });
 })(window.Vue, window.dc, window.iViz,
@@ -2974,6 +3346,14 @@ var iViz = (function (_, $) {
     };
     this.getDownloadFileTypes = function() {
       return Object.keys(this.dataForDownload);
+    };
+    this.setDownloadDataTypes = function(types) {
+      var _self = this;
+      _.each(types, function(type) {
+        if (!_self.dataForDownload.hasOwnProperty(type)) {
+          _self.dataForDownload[type] = '';
+        }
+      });
     };
   };
 })(window.iViz, window._);
@@ -3175,80 +3555,19 @@ var iViz = (function (_, $) {
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-/**
- * @author suny1@mskcc.org on 3/15/16.
- *
- * Invisible charts functioning as bridges between different chart groups
- * Each chart group has its own invisible chart, consisting of sample/patient ids
- *
- */
-
-'use strict';
-(function($, dc) {
-  iViz.bridgeChart = {};
-  iViz.bridgeChart.init = function(ndx, settings, type,id) {
-    var dimHide, countPerFuncHide;
-    if (type === 'patient') {
-      dimHide = ndx.dimension(function (d) { return d.patient_id; }),
-        countPerFuncHide = dimHide.group().reduceCount();
-    } else if (type === 'sample') {
-      dimHide = ndx.dimension(function (d) { return d.sample_id; }),
-        countPerFuncHide = dimHide.group().reduceCount();
-    }
-    var _chartInvisible = dc.pieChart('#' + type +'_'+id+ '_id_chart', type +'-'+id);
-    _chartInvisible.width(settings.pieChart.width)
-      .height(settings.pieChart.height)
-      .dimension(dimHide)
-      .group(countPerFuncHide)
-      .innerRadius(settings.pieChart.innerRadius);
-    return _chartInvisible;
-  }
-  return iViz.bridgeChart;
-}(window.$, window.dc));
-
-/*
- * Copyright (c) 2015 Memorial Sloan-Kettering Cancer Center.
- *
- * This library is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY, WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR FITNESS
- * FOR A PARTICULAR PURPOSE. The software and documentation provided hereunder
- * is on an 'as is' basis, and Memorial Sloan-Kettering Cancer Center has no
- * obligations to provide maintenance, support, updates, enhancements or
- * modifications. In no event shall Memorial Sloan-Kettering Cancer Center be
- * liable to any party for direct, indirect, special, incidental or
- * consequential damages, including lost profits, arising out of the use of this
- * software and its documentation, even if Memorial Sloan-Kettering Cancer
- * Center has been advised of the possibility of such damage.
- */
-
-/*
- * This file is part of cBioPortal.
- *
- * cBioPortal is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
 /**
  * Created by Karthik Kalletla on 4/20/16.
  */
 'use strict';
 (function(Vue, iViz, $, Clipboard) {
   Vue.component('manageCharts', {
-    template: '<option id="{{attribute.attr_id}}" v-if="!attribute.show" v-for="attribute in data.attributes" value="{{parent}}---{{ $index }}">{{attribute.display_name}}</option>',
+    /*template: '<option id="{{attribute.attr_id}}" v-if="!attribute.show" v-for="attribute in data.attributes" value="{{parent}}---{{ $index }}">{{attribute.display_name}}</option>',
+     */
+    template: '<option id="{{data.attr_id}}" v-if="!data.show" value="{{data.attr_id}}">{{data.display_name}}</option>',
     props: [
-      'data', 'parent'
+      'data'
     ], ready: function() {
-      $("#study-view-add-chart").trigger("chosen:updated");
+      $("#iviz-add-chart").trigger("chosen:updated");
     }
   });
 })(window.Vue, window.iViz,
@@ -3384,7 +3703,7 @@ var iViz = (function (_, $) {
 'use strict';
 (function(iViz, dc, _, $) {
   // iViz pie chart component. It includes DC pie chart.
-  iViz.view.component.PieChart = function(ndx, attributes, opts) {
+  iViz.view.component.PieChart = function(ndx, attributes, opts, cluster) {
     var content = this;
     var v = {};
 
@@ -3410,10 +3729,9 @@ var iViz = (function (_, $) {
     var labelMetaData = [];
     var maxLabelValue = 0;
     var currentView = 'pie';
+    var updateQtip = true;
 
     initDCPieChart();
-
-    content.dataForDownload = {};
     
     content.getChart = function() {
       return v.chart;
@@ -3459,6 +3777,13 @@ var iViz = (function (_, $) {
         position: {my:'left center',at:'center right', viewport: $(window)},
         content: '<div id="qtip-' + v.opts.charDivId + '-content-react">Loading....</div>',
         events: {
+          show:function(event){
+            if(updateQtip){
+              labelMetaData = [];
+              updateQtip = false;
+              updatePieLabels();
+            }
+          },
           render: function() {
             updateCurrentLabels();
             initReactData();
@@ -3476,6 +3801,14 @@ var iViz = (function (_, $) {
       });
     };
 
+    content.updateDataForDownload = function(fileType) {
+      if (fileType === 'tsv') {
+        initTsvDownloadData();
+      } else if (['pdf', 'svg'].indexOf(fileType) !== -1) {
+        initCanvasDownloadData();
+      }
+    }
+
     /**
      * This is the function to initialize dc pie chart instance.
      */
@@ -3487,10 +3820,6 @@ var iViz = (function (_, $) {
         var height = v.opts.height;
         var radius = (width - 20) / 2;
         var color = $.extend(true, [], v.data.color);
-        var attr = v.data.attr_id;
-        var cluster = v.data.ndx.dimension(function(d) {
-          return d[attr];
-        });
 
         v.chart = dc.pieChart('#' + v.opts.chartId, v.opts.groupid);
 
@@ -3525,15 +3854,18 @@ var iViz = (function (_, $) {
             return d.key;
           });
         v.chart.on("postRender",function(){
-          initLabels();
-          initReactData();
+          //TODO:commented this because this is taking much time to load chart, need to find different way
+          //initLabels();
+         // initReactData();
         });
         v.chart.on("preRedraw",function(){
           removeMarker();
         });
         v.chart.on("postRedraw",function(){
           if ( $("#"+v.opts.charDivId).length ) {
-            updatePieLabels();
+            //TODO:commented this because this is taking much time to redraw after applying filter, need to find different way
+            updateQtip = true;
+          //  updatePieLabels();
           }
         });
       } else {
@@ -3544,17 +3876,20 @@ var iViz = (function (_, $) {
       }
     }
 
-    function initTsvDownloadData(meta) {
+    function initTsvDownloadData() {
       var data = v.data.display_name + '\tCount';
 
-      meta = meta || labelMetaData;
+      var meta = labels || [];
       
       for (var i = 0; i < meta.length; i++) {
         data += '\r\n';
         data += meta[i].name + '\t';
         data += meta[i].samples;
       }
-      content.setDownloadData('tsv', data);
+      content.setDownloadData('tsv', {
+        fileName: v.data.display_name || 'Pie Chart',
+        data: data
+      });
     }
 
     function initCanvasDownloadData() {
@@ -3598,8 +3933,6 @@ var iViz = (function (_, $) {
     function initLabels() {
       labelMetaData = initLabelInfo();
       labels = $.extend(true, [], labelMetaData);
-      initTsvDownloadData();
-      initCanvasDownloadData();
     }
 
     function initLabelInfo() {
@@ -3680,8 +4013,6 @@ var iViz = (function (_, $) {
 
     function updateCurrentLabels() {
       labels = filterLabels();
-      initTsvDownloadData(labels);
-      initCanvasDownloadData();
     }
 
     function findLabel(labelName) {
@@ -3942,8 +4273,6 @@ var iViz = (function (_, $) {
         'stroke-width': '1px'
       });
     }
-    
-    // return content;
   };
 
   iViz.view.component.PieChart.prototype = new iViz.view.component.GeneralChart('pieChart');
@@ -4040,15 +4369,15 @@ var iViz = (function (_, $) {
               '<div id={{chartTableId}} :class="{view: showTableIcon}"></div>'+
               '</div>',
     props: [
-      'ndx', 'attributes', 'filters', 'groupid','data','options','indices'
+      'ndx', 'attributes', 'filters', 'groupid','options'
     ],
     data: function() {
       return {
         v: {},
-        charDivId: 'chart-' + this.attributes.attr_id.replace(/\(|\)/g, "") + '-div',
-        resetBtnId: 'chart-' + this.attributes.attr_id.replace(/\(|\)/g, "") + '-reset',
-        chartId: 'chart-' + this.attributes.attr_id.replace(/\(|\)/g, ""),
-        chartTableId : 'table-'+ this.attributes.attr_id.replace(/\(|\)/g, ""),
+        charDivId: 'chart-' + this.attributes.attr_id.replace(/\(|\)| /g, "") + '-div',
+        resetBtnId: 'chart-' + this.attributes.attr_id.replace(/\(|\)| /g, "") + '-reset',
+        chartId: 'chart-' + this.attributes.attr_id.replace(/\(|\)| /g, ""),
+        chartTableId : 'table-'+ this.attributes.attr_id.replace(/\(|\)| /g, ""),
         displayName: this.attributes.display_name,
         chartInst: '',
         component: '',
@@ -4072,10 +4401,11 @@ var iViz = (function (_, $) {
                 this.chartInst.filter(newVal);
             }
             else{
-              var temp =newVal.length>1?[newVal]:newVal;
+              var temp = newVal.length > 1? [newVal]: newVal;
               this.chartInst.replaceFilter(temp);
             }
           }
+          dc.redrawAll(this.groupid);
           this.$dispatch('update-filters');
         }else{
           this.filtersUpdated = false;
@@ -4084,7 +4414,7 @@ var iViz = (function (_, $) {
     },
     events: {
       'toTableView': function() {
-        this.piechart.changeView(this,!this.showTableIcon);
+        this.piechart.changeView(this, !this.showTableIcon);
       },
       'closeChart':function(){
         $('#' +this.charDivId).qtip('destroy');
@@ -4107,32 +4437,44 @@ var iViz = (function (_, $) {
       }
     },
     ready: function() {
-      this.$once('initMainDivQtip',this.initMainDivQtip);
-      var opts = {
-        chartId : this.chartId,
-        charDivId : this.charDivId,
-        groupid : this.groupid,
-        chartTableId : this.chartTableId,
-        transitionDuration : iViz.opts.dc.transitionDuration,
-        width: window.style['piechart-svg-width'] | 130,
-        height: window.style['piechart-svg-height'] | 130
-      };
-      this.piechart = new iViz.view.component.PieChart(this.ndx, this.attributes, opts);
-      this.chartInst = this.piechart.getChart();
-      var self_ = this;
-      this.chartInst.on('filtered', function(_chartInst, _filter) {
-        if(!self_.filtersUpdated) {
-          self_.filtersUpdated = true;
-          var tempFilters_ = $.extend(true, [], self_.filters);
-          tempFilters_ = iViz.shared.updateFilters(_filter, tempFilters_,
-            self_.attributes.view_type);
-          self_.filters = tempFilters_;
-          self_.$dispatch('update-filters');
-        }else{
-          self_.filtersUpdated = false;
-        }
+      
+      var _self = this;
+
+      // check if there's data for this attribute  
+      //var _hasData = false;
+      var _attrId = _self.attributes.attr_id;
+      var _cluster = _self.ndx.dimension(function(d) {
+        if (typeof d[_attrId] === 'undefined') d[_attrId] = 'NA';
+        return d[_attrId];
       });
-      this.$dispatch('data-loaded', true);
+      
+        _self.$once('initMainDivQtip', _self.initMainDivQtip);
+        var opts = {
+          chartId : _self.chartId,
+          charDivId : _self.charDivId,
+          groupid : _self.groupid,
+          chartTableId : _self.chartTableId,
+          transitionDuration : iViz.opts.dc.transitionDuration,
+          width: window.style['piechart-svg-width'] | 130,
+          height: window.style['piechart-svg-height'] | 130
+        };
+        _self.piechart = new iViz.view.component.PieChart(_self.ndx, _self.attributes, opts, _cluster);
+        _self.piechart.setDownloadDataTypes(['tsv', 'pdf', 'svg']);
+        _self.chartInst = _self.piechart.getChart();
+        _self.chartInst.on('filtered', function(_chartInst, _filter) {
+          if(!_self.filtersUpdated) {
+            _self.filtersUpdated = true;
+            var tempFilters_ = $.extend(true, [], _self.filters);
+            tempFilters_ = iViz.shared.updateFilters(_filter, tempFilters_,
+              _self.attributes.view_type);
+            _self.filters = tempFilters_;
+            _self.$dispatch('update-filters');
+          }else{
+            _self.filtersUpdated = false;
+          }
+        });
+        _self.$dispatch('data-loaded', true);
+      
     }
   });
 })(window.Vue, window.dc, window.iViz,
@@ -4193,7 +4535,7 @@ var iViz = (function (_, $) {
 
       var cluster = ndx_.dimension(function(d) {
         var val = d[data_.attrId];
-        if (val === 'NA' || val === '' || val === 'NaN') {
+        if (typeof val === 'undefined' || val === 'NA' || val === '' || val === 'NaN') {
           hasEmptyValue_ = true;
           val = opts_.emptyMappingVal;
         } else {
@@ -4395,7 +4737,10 @@ var iViz = (function (_, $) {
         data += _cases[i].patient_id + '\t';
         data += iViz.util.restrictNumDigits(_cases[i][data_.attrId]);
       }
-      content.setDownloadData('tsv', data);
+      content.setDownloadData('tsv', {
+        fileName: data_.displayName,
+        data: data
+      });
     }
 
     function initCanvasDownloadData() {
@@ -4413,8 +4758,6 @@ var iViz = (function (_, $) {
       });
     }
 
-    content.dataForDownload = {};
-
     content.hasLogScale = function() {
       if (data_ !== undefined) {
         if (data_.min !== null && data_.max !== null) {
@@ -4424,7 +4767,9 @@ var iViz = (function (_, $) {
       return false;
     };
 
-    content.init = function(ndx, data, opts) {
+    content.init = function(ndx, opts) {
+      //TODO: need to update logic of getting min and max
+      var data = iViz.getAttrData(opts.group_type);
       data_.meta = _.map(_.filter(_.pluck(data, opts.attrId), function(d) {
         return d !== 'NA';
       }), function(d) {
@@ -4443,6 +4788,7 @@ var iViz = (function (_, $) {
       opts_.chartDivId = opts.chartDivId;
       opts_.chartId = opts.chartId;
       ndx_ = ndx;
+      hasEmptyValue_ = false;
 
       colors_ = $.extend(true, {}, iViz.util.getColors());
 
@@ -4462,9 +4808,6 @@ var iViz = (function (_, $) {
         }
       }
       chartInst_.render();
-
-      initTsvDownloadData();
-      initCanvasDownloadData();
       return chartInst_;
     };
 
@@ -4644,20 +4987,20 @@ var iViz = (function (_, $) {
 
   Vue.component('barChart', {
     template: '<div id={{charDivId}} class="grid-item grid-item-w-2 grid-item-h-1 bar-chart" @mouseenter="mouseEnter" @mouseleave="mouseLeave">' +
-    '<chart-operations :show-survival-icon="showSurvivalIcon" :show-log-scale="showLogScale"' +
+    '<chart-operations :show-log-scale="showLogScale"' +
     ':show-operations="showOperations" :groupid="groupid" :reset-btn-id="resetBtnId" :chart-ctrl="barChart" :chart="chartInst" :chart-id="chartId" :show-log-scale="showLogScale" :filters.sync="filters"></chart-operations>' +
     '<div class="dc-chart dc-bar-chart" align="center" style="float:none !important;" id={{chartId}} ></div><span class="text-center chart-title-span">{{displayName}}</span>' +
     '</div>',
     props: [
-      'data', 'ndx', 'attributes', 'filters', 'groupid'
+      'ndx', 'attributes', 'filters', 'groupid'
     ],
     data: function() {
       return {
-        chartDivId: 'chart-' + this.attributes.attr_id.replace(/\(|\)/g, "") +
+        chartDivId: 'chart-' + this.attributes.attr_id.replace(/\(|\)| /g, "") +
         '-div',
-        resetBtnId: 'chart-' + this.attributes.attr_id.replace(/\(|\)/g, "") +
+        resetBtnId: 'chart-' + this.attributes.attr_id.replace(/\(|\)| /g, "") +
         '-reset',
-        chartId: 'chart-new-' + this.attributes.attr_id.replace(/\(|\)/g, ""),
+        chartId: 'chart-new-' + this.attributes.attr_id.replace(/\(|\)| /g, ""),
         displayName: this.attributes.display_name,
         chartInst:'',
         barChart:'',
@@ -4672,6 +5015,7 @@ var iViz = (function (_, $) {
           this.filtersUpdated = true;
           if (newVal.length == 0) {
             this.chartInst.filter(null);
+            dc.redrawAll(this.groupid);
             this.$dispatch('update-filters');
           }
         } else{
@@ -4695,7 +5039,8 @@ var iViz = (function (_, $) {
         this.showOperations = false;
       },initChart:function(logScaleChecked){
         this.chartInst =
-          this.barChart.init(this.ndx, this.data, {
+          this.barChart.init(this.ndx, {
+            group_type:this.attributes.group_type,
             attrId: this.attributes.attr_id,
             displayName: this.attributes.display_name,
             chartDivId: this.chartDivId,
@@ -4727,6 +5072,7 @@ var iViz = (function (_, $) {
     },
     ready: function() {
       this.barChart = new iViz.view.component.BarChart();
+      this.barChart.setDownloadDataTypes(['tsv', 'pdf', 'svg']);
       settings_.barChart.width = window.style.vars.barchartWidth || 150;
       settings_.barChart.height = window.style.vars.barchartHeight || 150;
       this.initChart();
@@ -4780,7 +5126,6 @@ var iViz = (function (_, $) {
     var data_;
     var opts_;
 
-    content.dataForDownload = {};
     content.init = function(_data, opts) {
       opts_ = $.extend(true, {}, opts);
       chartId_ = opts_.chartId;
@@ -4844,7 +5189,6 @@ var iViz = (function (_, $) {
         var _pts_sample_id = data.points[0].data.sample_id[data.points[0].pointNumber];
         window.open(cbio.util.getLinkToSampleView(_pts_study_id, _pts_sample_id));
       });
-      Plotly.plot(document.getElementById(chartId_), data, layout);
 
       //link to sample view
       var _plotsElem = document.getElementById(chartId_);
@@ -4858,14 +5202,24 @@ var iViz = (function (_, $) {
     };
 
     content.update = function(_sampleIds) { // update selected samples (change color)
-      var _selectedData = _.filter(data_, function(_dataObj) {
-        return $.inArray(_dataObj.sample_id, _sampleIds) !== -1;
+      
+      var _selectedData = [], _unselectedData = [];
+
+      var _tmpSelectedSampleIdMap = {};
+      _.each(_sampleIds, function(_sampleId) {
+        _tmpSelectedSampleIdMap[_sampleId] = '';
       });
-      var _unselectedData = _.filter(data_, function(_dataObj) {
-        return $.inArray(_dataObj.sample_id, _sampleIds) === -1;
+      _.each(data_, function(_dataObj) {
+        if (_tmpSelectedSampleIdMap.hasOwnProperty(_dataObj.sample_id)) {
+          _selectedData.push(_dataObj);
+        } else {
+          _unselectedData.push(_dataObj);
+        }
       });
+      
       document.getElementById(chartId_).data = [];
       var _unselectedDataQtips = [], _selectedDataQtips = [];
+      
       _.each(_unselectedData, function(_dataObj) {
         _unselectedDataQtips.push("Cancer Study:" + _dataObj.study_id + "<br>" + "Sample Id: " +  _dataObj.sample_id + "<br>" +"CNA fraction: " + _dataObj.cna_fraction + "<br>" + "Mutation count: " + _dataObj.mutation_count);
       });
@@ -4903,9 +5257,14 @@ var iViz = (function (_, $) {
         }
       };
       Plotly.redraw(document.getElementById(chartId_));
-      initCanvasDownloadData();
     }
 
+    content.updateDataForDownload = function(fileType) {
+      if (['pdf', 'svg'].indexOf(fileType) !== -1) {
+        initCanvasDownloadData();
+      }
+    }
+    
     function initCanvasDownloadData() {
       content.setDownloadData('svg', {
         title: opts_.title,
@@ -4970,39 +5329,57 @@ var iViz = (function (_, $) {
     ' :display-name="displayName" :has-chart-title="true" :groupid="groupid"' +
     ' :reset-btn-id="resetBtnId" :chart-ctrl="chartInst" :chart="chartInst" :chart-id="chartId"' +
     ' :attributes="attributes" :filters.sync="filters" :filters.sync="filters"></chart-operations>' +
-      '<div class="dc-chart dc-scatter-plot" align="center" style="float:none !important;" id={{chartId}} >' +
-      '</div>',
+    ' <div :class="{\'start-loading\': showLoad}" class="dc-chart dc-scatter-plot" align="center" style="float:none !important;" id={{chartId}} ></div>' +
+    ' <div id="chart-loader"  :class="{\'show-loading\': showLoad}" class="chart-loader" style="top: 30%; left: 30%; display: none;">' +
+    ' <img src="images/ajax-loader.gif" alt="loading"></div></div>',
     props: [
-      'data', 'ndx', 'attributes', 'options', 'filters', 'groupid'
+      'ndx', 'attributes', 'options', 'filters', 'groupid'
     ],
     data: function() {
       return {
-        charDivId: 'chart-' + this.attributes.attr_id.replace(/\(|\)/g, "") + '-div',
-        resetBtnId: 'chart-' + this.attributes.attr_id.replace(/\(|\)/g, "") + '-reset',
-        chartId: 'chart-new-' + this.attributes.attr_id.replace(/\(|\)/g, ""),
+        charDivId: 'chart-' + this.attributes.attr_id.replace(/\(|\)| /g, "") + '-div',
+        resetBtnId: 'chart-' + this.attributes.attr_id.replace(/\(|\)| /g, "") + '-reset',
+        chartId: 'chart-new-' + this.attributes.attr_id.replace(/\(|\)| /g, ""),
         displayName: this.attributes.display_name,
         showOperations: false,
         selectedSamples: [],
         chartInst: {},
-        hasFilters:false
+        hasFilters:false,
+        showLoad:true,
+        invisibleDimension:{}
       };
     },
     watch: {
-      'filters': function(newVal) {
-        this.$dispatch('update-samples',newVal);
+      'filters': function(newVal,oldVal) {
+        if(newVal.length === 0 ){
+          this.invisibleDimension.filterAll();
+          dc.redrawAll(this.groupid);
+        }
+        this.updateFilters();
       }
     },
     events: {
-      'selected-sample-update': function(_selectedSamples) {
-      if (_selectedSamples.length !== this.data.length) {
-        this.selectedSamples=_selectedSamples;
-        this.chartInst.update(_selectedSamples);
-      } else {
-        this.selectedSamples=_selectedSamples;
-        this.chartInst.update([]);
-      }
-    },
+      'show-loader':function(){
+        this.showLoad = true;
+      },
+      'update-special-charts': function() {
+        var attrId = this.attributes.group_type==='patient'?'patient_id':'sample_id';
+        var _selectedCases = _.pluck(this.invisibleDimension.top(Infinity),attrId);
+        var data = iViz.getAttrData(this.attributes.group_type);
+        if (_selectedCases.length !== data.length) {
+          this.selectedSamples=_selectedCases;
+          this.chartInst.update(_selectedCases);
+        } else {
+          this.selectedSamples=_selectedCases;
+          this.chartInst.update([]);
+        }
+        this.showLoad = false;
+      },
       'closeChart':function(){
+        if(this.filters.length>0){
+          this.filters = [];
+          this.updateFilters();
+        }
         this.$dispatch('close');
       }
     },
@@ -5011,40 +5388,65 @@ var iViz = (function (_, $) {
         this.showOperations = true;
       }, mouseLeave: function() {
         this.showOperations = false;
+      },
+      updateFilters: function(){
+        this.$dispatch('update-filters');
       }
     },
     ready: function() {
       
       var _self = this;
+      _self.showLoad = true;
       var _opts = {
         chartId: this.chartId,
         chartDivId: this.charDivId,
         title: this.attributes.display_name
       };
+      var attrId = this.attributes.group_type==='patient'?'patient_id':'sample_id';
+      this.invisibleDimension  = this.ndx.dimension(function (d) { return d[attrId]; });
+      
+      var data = iViz.getAttrData(this.attributes.group_type);
       _self.chartInst = new iViz.view.component.ScatterPlot();
-      _self.chartInst.init(this.data, _opts);
-      var _selectedSamples = this.$parent.$parent.$parent.selectedsamples;
-      if (_selectedSamples.length !== this.data.length) {
+      _self.chartInst.init(data, _opts);
+      _self.chartInst.setDownloadDataTypes(['pdf', 'svg']);
+      /*var _selectedSamples = this.$parent.$parent.$parent.selectedsamples;
+      if (_selectedSamples.length !== data.length) {
         this.selectedSamples=_selectedSamples;
         this.chartInst.update(_selectedSamples);
-      }
+      }*/
       document.getElementById(this.chartId).on('plotly_selected', function(_eventData) {
         if (typeof _eventData !== 'undefined') {
           var _selectedData = [];
-          _.each(_eventData.points, function(_pointObj) {
-            _.each(_self.data, function(_dataObj) {
-              if (_dataObj['cna_fraction'] === _pointObj.x &&
-                  _dataObj['mutation_count'] === _pointObj.y) {
-                _selectedData.push(_dataObj);
-              }
-            });
+          // create hash map for (overall) data with cna_fraction + mutation count as key, dataObj as value (performance concern)
+          var _CnaFracMutCntMap = {};
+          _.each(data, function(_dataObj) {
+            var _key = _dataObj['cna_fraction'] + "||" + _dataObj['mutation_count'];
+            _CnaFracMutCntMap[_key] = _dataObj;
           });
-          _self.selectedSamples = _.pluck(_selectedData, "sample_id");
-         // _self.chartInst.update(_self.selectedSamples);
-          _self.filters = _self.selectedSamples;
+          _.each(_eventData.points, function(_pointObj) {
+            if (_pointObj.x) {
+              _selectedData.push(_CnaFracMutCntMap[_pointObj.x + "||" + _pointObj.y]);
+            }
+          });
+          var _selectedCases =  _.pluck(_selectedData, "sample_id").sort();
+          _self.selectedSamples =_selectedCases;
+          _self.filters =_selectedCases;
           //_self.$dispatch('update-samples', _self.selectedSamples);
+
+          var self_ = this;
+          var filtersMap = {};
+          _.each(_selectedCases,function(filter){
+            if(filtersMap[filter] === undefined){
+              filtersMap[filter] = true;
+            }
+          });
+          _self.invisibleDimension.filterFunction(function(d){
+            return (filtersMap[d] !== undefined);
+          });
+          dc.redrawAll(_self.groupid);
         }
       });
+      _self.showLoad = false;
       this.$dispatch('data-loaded', true);
     }
   });
@@ -5094,27 +5496,39 @@ var iViz = (function (_, $) {
     var data_ = {};
     var opts_ = {};
 
-    content_.dataForDownload = {};
-    content_.init = function(_data, _opts) { //_attrId here indicates chart type (OS or DFS)
+    content_.init = function(_data, _opts, _selectedPatientList) { //_attrId here indicates chart type (OS or DFS)
       opts_ = $.extend(true, {}, _opts);
       $('#' + opts_.chartId).empty();
       data_ = _data;
       var _dataProxy = new survivalChartProxy(_data, opts_.attrId);
       this.chartInst_ = new survivalCurve(opts_.chartId, _dataProxy.get(), opts_);
+      this.update(_selectedPatientList, opts_.chartId, opts_.attrId);
     };
+
     content_.update = function(_selectedPatients, _chartId, _attrId) {
+
       // remove previous curves
       this.chartInst_.removeCurves();
-      // settings for selected samples curve
-      var _selectedData = _.filter(data_, function(_dataObj) {
-        return $.inArray(_dataObj.patient_id, _selectedPatients) !== -1;
+
+      // separate selected and unselected data
+      var _selectedData = [], _unselectedData = [];
+      var _tmpSelectedPatientIdMap = {};
+      _.each(_selectedPatients, function(_patientId) {
+        _tmpSelectedPatientIdMap[_patientId] = '';
       });
+      _.each(Object.keys(iViz.getCaseIndices(opts_.type)), function(_patientId) {
+        var _index = iViz.getCaseIndices(opts_.type)[_patientId];
+        if (_tmpSelectedPatientIdMap.hasOwnProperty(_patientId)) {
+          _selectedData.push(data_[_index]);
+        } else {
+          _unselectedData.push(data_[_index]);
+        }
+      });
+      
+      // settings for different curves
       var _selectedDataProxy = new survivalChartProxy(_selectedData, _attrId);
-      // settings for unselected samples curve
-      var _unselectedData = _.filter(data_, function(_dataObj) {
-        return $.inArray(_dataObj.patient_id, _selectedPatients) === -1;
-      });
       var _unselectedDataProxy = new survivalChartProxy(_unselectedData, _attrId);
+
       // add curves
       if (_unselectedDataProxy.get().length === 0) {
         this.chartInst_.addCurve(_selectedDataProxy.get(), 0, "#006bb3");
@@ -5124,7 +5538,12 @@ var iViz = (function (_, $) {
         this.chartInst_.addCurve(_unselectedDataProxy.get(), 1, "#006bb3");
         this.chartInst_.addPval(_selectedDataProxy.get(), _unselectedDataProxy.get());
       }
-      initCanvasDownloadData();
+    }
+
+    content_.updateDataForDownload = function(fileType) {
+      if (['pdf', 'svg'].indexOf(fileType) !== -1) {
+        initCanvasDownloadData();
+      }
     }
     
     function initCanvasDownloadData() {
@@ -5185,33 +5604,43 @@ var iViz = (function (_, $) {
   Vue.component('survival', {
     template: '<div id={{chartDivId}} class="grid-item grid-item-h-2 grid-item-w-2" @mouseenter="mouseEnter" @mouseleave="mouseLeave">' +
               '<chart-operations :show-operations="showOperations" :has-chart-title="hasChartTitle" :display-name="displayName" :groupid="groupid" :reset-btn-id="resetBtnId" :chart-ctrl="chartInst" :chart="chartInst" :chart-id="chartId" :attributes="attributes"></chart-operations>' +
-              '<div class="dc-chart dc-scatter-plot" align="center" style="float:none !important;" id={{chartId}} >' +
-              '<div class="dc-chart dc-scatter-plot" align="center" style="float:none !important;" id={{chartId}} >' +
-              '</div>',
+              '<div :class="{\'start-loading\': showLoad}" class="dc-chart dc-scatter-plot" align="center" style="float:none !important;" id={{chartId}} ></div>' +
+              '<div id="chart-loader"  :class="{\'show-loading\': showLoad}" class="chart-loader" style="top: 30%; left: 30%; display: none;">' +
+    '<img src="images/ajax-loader.gif" alt="loading"></div></div>',
     props: [
-      'data', 'ndx', 'attributes', 'options', 'filters', 'groupid'
+      'ndx', 'attributes', 'options', 'filters', 'groupid'
     ],
     created: function() {
     },
     data: function() {
       return {
-        chartDivId: 'chart-' + this.attributes.attr_id.replace(/\(|\)/g, "") + '-div',
-        resetBtnId: 'chart-' + this.attributes.attr_id.replace(/\(|\)/g, "") + '-reset',
-        chartId: 'chart-new-' + this.attributes.attr_id.replace(/\(|\)/g, ""),
+        chartDivId: 'chart-' + this.attributes.attr_id.replace(/\(|\)| /g, "") + '-div',
+        resetBtnId: 'chart-' + this.attributes.attr_id.replace(/\(|\)| /g, "") + '-reset',
+        chartId: 'chart-new-' + this.attributes.attr_id.replace(/\(|\)| /g, ""),
         displayName: this.attributes.display_name,
         chartInst: '',
         showOperations: false,
         fromWatch: false,
         fromFilter: false,
-        hasChartTitle:true
+        hasChartTitle:true,
+        showLoad:true,
+        invisibleDimension:{}
       };
     },
-    watch: {
-      'mappedsamples': function(val) {
-        
+    events: {
+      'show-loader':function(){
+        this.showLoad = true;
+      },
+      'update-special-charts': function() {
+        var attrId = this.attributes.group_type==='patient'?'patient_id':'sample_id';
+        var _selectedCases = _.pluck(this.invisibleDimension.top(Infinity),attrId);
+        this.chartInst.update(_selectedCases, this.chartId, this.attributes.attr_id);
+        this.showLoad = false;
+      },
+      'closeChart':function(){
+        this.$dispatch('close');
       }
     },
-    events: {},
     methods: {
       mouseEnter: function() {
         this.showOperations = true;
@@ -5221,18 +5650,24 @@ var iViz = (function (_, $) {
     },
     ready: function() {
       var _self = this;
+      _self.showLoad = true;
+      var attrId = this.attributes.group_type==='patient'?'patient_id':'sample_id';
+      this.invisibleDimension  = this.ndx.dimension(function (d) { return d[attrId]; });
       var _opts = {
         width: window.style.vars.survivalWidth,
         height: window.style.vars.survivalHeight,
         chartId: this.chartId,
         attrId: this.attributes.attr_id,
-        title: this.attributes.display_name
+        title: this.attributes.display_name,
+        type: this.attributes.group_type
       };
+      var _selectedPatientList = this.$parent.$parent.$parent.selectedpatients;
       _self.chartInst = new iViz.view.component.Survival();
-      _self.chartInst.init(this.data, _opts);
-      _self.$on('survival-update', function(_selectedPatients) {
-        _self.chartInst.update(_selectedPatients, _self.chartId, _self.attributes.attr_id);
-      });
+      _self.chartInst.setDownloadDataTypes(['pdf', 'svg']);
+
+      var data = iViz.getAttrData(this.attributes.group_type);
+      _self.chartInst.init(data, _opts, _selectedPatientList);
+      _self.showLoad = false;
       this.$dispatch('data-loaded', true);
     }
   });
@@ -5825,11 +6260,12 @@ var LogRankTest = (function() {
 'use strict';
 (function(iViz, dc, _, $) {
   // iViz pie chart component. It includes DC pie chart.
-  iViz.view.component.tableView = function() {
-    var content = {};
-    var chartId_, geneData_, data_;
+  iViz.view.component.TableView = function() {
+    var content = this;
+    var chartId_, data_;
     var type_ = '';
     var attr_ = [];
+    var geneData_ = [];
     var selectedRows = [];
     var selectedGenes = [];
     var callbacks_ = {};
@@ -5838,11 +6274,13 @@ var LogRankTest = (function() {
     var allSamplesIds = [];
     var reactTableData = {};
     var initialized = false;
-    var patientDataIndices = {};
+    var caseIndices = {};
     var selectedRowData = [];
-
+    var selectedGeneData = [];
+    var displayName = '';
+    
     content.getCases = function() {
-      return _.intersection(selectedSamples, sequencedSampleIds);
+      return iViz.util.intersection(selectedSamples, sequencedSampleIds);
     };
 
     content.getSelectedRowData = function() {
@@ -5854,24 +6292,23 @@ var LogRankTest = (function() {
 
 
     content.init =
-      function(_attributes, _selectedSamples, _selectedGenes, _indices,
+      function(_attributes, _selectedSamples, _selectedGenes,
                _data, _chartId, _callbacks) {
         initialized = false;
-        allSamplesIds = _attributes.options.allCases;
+        allSamplesIds = _selectedSamples;
         selectedSamples = _selectedSamples;
+        selectedSamples.sort();
         sequencedSampleIds = _attributes.options.sequencedCases;
+        sequencedSampleIds.sort();
         selectedGenes = _selectedGenes;
         chartId_ = _chartId;
-        patientDataIndices = _indices;
+        caseIndices = iViz.getCaseIndices(_attributes.group_type);
         data_ = _data;
-        geneData_ = _attributes.gene_list;
+        geneData_ = iViz.getTableData(_attributes.attr_id);
         type_ = _attributes.type;
+        displayName = _attributes.attr_id || 'Table';
         callbacks_ = _callbacks;
-        if (iViz.util.tableView.compare(allSamplesIds, _selectedSamples)) {
-          initReactTable(true);
-        } else {
-          content.update(_selectedSamples);
-        }
+        initReactTable(true);
       };
 
     content.update = function(_selectedSamples, _selectedRows) {
@@ -5879,12 +6316,13 @@ var LogRankTest = (function() {
       var includeMutationCount = false;
       if (_selectedRows !== undefined)
         selectedRows = _selectedRows;
-      if ((!initialized) || (!iViz.util.tableView.compare(selectedSamples, _selectedSamples))) {
+      _selectedSamples.sort();
+      if ((!initialized) || (!iViz.util.compare(selectedSamples, _selectedSamples))) {
         initialized = true;
         selectedSamples = _selectedSamples;
-        if (!iViz.util.tableView.compare(allSamplesIds, _selectedSamples)) {
+        if (!iViz.util.compare(allSamplesIds, selectedSamples)) {
           _.each(_selectedSamples, function(caseId) {
-            var caseIndex_ = patientDataIndices[caseId];
+            var caseIndex_ = caseIndices[caseId];
             var caseData_ = data_[caseIndex_];
             var tempData_ = '';
             switch (type_) {
@@ -5913,11 +6351,11 @@ var LogRankTest = (function() {
               }
             });
           });
-          initReactTable(true,selectedGenesMap_);
+          initReactTable(true, selectedGenesMap_);
         } else {
           initReactTable(true);
         }
-      }else{
+      } else {
         initReactTable(false);
       }
     };
@@ -5927,8 +6365,14 @@ var LogRankTest = (function() {
       initReactTable(false);
     };
 
-    function initReactTable(_reloadData,_selectedGenesMap) {
-      if(_reloadData)
+    content.updateDataForDownload = function(fileType) {
+      if (fileType === 'tsv') {
+        initTsvDownloadData();
+      }
+    }
+
+    function initReactTable(_reloadData, _selectedGenesMap) {
+      if (_reloadData)
         reactTableData = initReactData(_selectedGenesMap);
       var _opts = {
         input: reactTableData,
@@ -5966,15 +6410,17 @@ var LogRankTest = (function() {
     }
 
     function mutatedGenesData(_selectedGenesMap) {
-      var genes = [];
       var numOfCases_ = content.getCases().length;
+
+      selectedGeneData.length = 0;
+
       if (geneData_) {
-        $.each(geneData_, function(index, item) {
+        _.each(geneData_, function(item) {
           var datum = {};
           datum.gene = item.gene;
           if (_selectedGenesMap !== undefined) {
             if (_selectedGenesMap[item.index] !== undefined) {
-              datum.caseIds = _.uniq(_selectedGenesMap[item.index].caseIds);
+              datum.caseIds =iViz.util.unique(_selectedGenesMap[item.index].caseIds);
               datum.samples = datum.caseIds.length;
               switch (type_) {
                 case 'mutatedGene':
@@ -5996,7 +6442,7 @@ var LogRankTest = (function() {
               return;
             }
           } else {
-            datum.caseIds = _.uniq(item.caseIds);
+            datum.caseIds = iViz.util.unique(item.caseIds);
             datum.samples = datum.caseIds.length;
             switch (type_) {
               case 'mutatedGene':
@@ -6026,11 +6472,10 @@ var LogRankTest = (function() {
           } else {
             datum.qval = '';
           }
-          genes.push(datum);
+          selectedGeneData.push(datum);
         })
       }
-      return genes;
-
+      return selectedGeneData;
     }
 
     function initReactData(_selectedGenesMap) {
@@ -6040,7 +6485,7 @@ var LogRankTest = (function() {
         attributes: attr_
       };
       var _mutationData = mutatedGenesData(_selectedGenesMap);
-      _.each(_mutationData, function(item, index) {
+      _.each(_mutationData, function(item) {
         for (var key in item) {
           var datum = {
             attr_id: key,
@@ -6054,16 +6499,16 @@ var LogRankTest = (function() {
 
     }
 
-    function reactSubmitClickCallback(){
+    function reactSubmitClickCallback() {
       callbacks_.submitClick(selectedRowData);
     }
 
     function reactRowClickCallback(data, selected, _selectedRows) {
-      if(selected){
+      if (selected) {
         selectedRowData.push(data);
       }
-      else{
-        selectedRowData = _.filter(selectedRowData, function(index,item){
+      else {
+        selectedRowData = _.filter(selectedRowData, function(index, item) {
           return (item.uniqueId === selected.uniqueId);
         });
       }
@@ -6072,8 +6517,35 @@ var LogRankTest = (function() {
     function reactGeneClickCallback(selectedRow, selected) {
       callbacks_.addGeneClick(selectedRow);
     }
-    return content;
-  };
+
+    function initTsvDownloadData() {
+      var attrs = iViz.util.tableView.getAttributes(type_).filter(function(attr) {
+        return attr.attr_id !== 'uniqueId';
+      });
+      var downloadOpts = {
+        fileName: displayName,
+        data: ''
+      };
+
+      if (_.isArray(attrs) && attrs.length > 0) {
+        var data = attrs.map(function(attr) {
+            return attr.display_name;
+          }).join('\t') + '\n';
+
+        _.each(selectedGeneData, function(row) {
+          var _tmp = [];
+          _.each(attrs, function(attr) {
+            _tmp.push(row[attr.attr_id] || '');
+          })
+          data += _tmp.join('\t') + '\n';
+        });
+
+        downloadOpts.data = data;
+      }
+      content.setDownloadData('tsv', downloadOpts);
+    }
+  }
+  iViz.view.component.TableView.prototype = new iViz.view.component.GeneralChart('table');
 
 
   iViz.util.tableView = (function() {
@@ -6086,7 +6558,7 @@ var LogRankTest = (function() {
       }
       return true;
     };
-
+    
     content.getAttributes = function(type) {
       var _attr = [];
       switch (type) {
@@ -6234,45 +6706,52 @@ var LogRankTest = (function() {
 (function(Vue, dc, iViz, $) {
   Vue.component('tableView', {
     template: '<div id={{chartDivId}} class="grid-item grid-item-h-2 grid-item-w-2" @mouseenter="mouseEnter" @mouseleave="mouseLeave">' +
-    '<chart-operations :show-operations="showOperations" :display-name="displayName" ' +
+    '<chart-operations :show-operations="showOperations" :display-name="displayName" :chart-ctrl="chartInst"' +
     ':has-chart-title="true" :groupid="groupid" :reset-btn-id="resetBtnId" :chart="chartInst" ' +
     ':chart-id="chartId" :attributes="attributes" :filters.sync="filters" :filters.sync="filters"></chart-operations>' +
-    '<div class="dc-chart dc-table-plot" :class="{hideLoading: showLoad}" align="center" style="float:none !important;" id={{chartId}} >' +
-
-    '</div>',
+    '<div class="dc-chart dc-table-plot" :class="{\'start-loading\': showLoad}" align="center" style="float:none !important;" id={{chartId}} ></div>' +
+    '<div id="chart-loader"  :class="{\'show-loading\': showLoad}" class="chart-loader" style="top: 30%; left: 30%; display: none;">' +
+    '<img src="images/ajax-loader.gif" alt="loading"></div></div>',
     props: [
-      'data', 'ndx', 'attributes', 'options', 'filters', 'groupid','indices'
+      'ndx', 'attributes', 'options', 'filters', 'groupid'
     ],
     data: function() {
       return {
-        charDivId: 'chart-' + this.attributes.attr_id.replace(/\(|\)/g, "") + '-div',
-        resetBtnId: 'chart-' + this.attributes.attr_id.replace(/\(|\)/g, "") + '-reset',
-        chartId: 'chart-new-' + this.attributes.attr_id.replace(/\(|\)/g, ""),
+        charDivId: 'chart-' + this.attributes.attr_id.replace(/\(|\)| /g, "") + '-div',
+        resetBtnId: 'chart-' + this.attributes.attr_id.replace(/\(|\)| /g, "") + '-reset',
+        chartId: 'chart-new-' + this.attributes.attr_id.replace(/\(|\)| /g, ""),
         displayName: this.attributes.display_name,
         showOperations: false,
         chartInst: {},
         showLoad:true,
-        showLoading:'show-loading',
-        hideLoading:'hide-loading',
-        selectedRows:[]
+        selectedRows:[],
+        invisibleDimension:{}
       };
     },
     watch: {
       'filters': function(newVal) {
         if(newVal.length === 0 ){
+          this.invisibleDimension.filterAll();
+          dc.redrawAll(this.groupid);
           this.selectedRows=[];
         }
         this.updateFilters();
       }
     },
     events: {
+      'show-loader':function(){
+        this.showLoad = true;
+      },
       'gene-list-updated':function(genes){
         genes = $.extend(true,[],genes);
         this.chartInst.updateGenes(genes);
       },
-      'selected-sample-update': function(_selectedSamples) {
-        this.chartInst.update(_selectedSamples, this.selectedRows);
+      'update-special-charts': function() {
+        var attrId = this.attributes.group_type==='patient'?'patient_id':'sample_id';
+        var _selectedCases = _.pluck(this.invisibleDimension.top(Infinity),attrId);
+        this.chartInst.update(_selectedCases, this.selectedRows);
         this.setDisplayTitle(this.chartInst.getCases().length);
+        this.showLoad = false;
       },
       'closeChart':function(){
         if(this.filters.length>0){
@@ -6293,15 +6772,26 @@ var LogRankTest = (function() {
         var selectedSamplesUnion = [];
         var selectedRowsUids = _.pluck(_selectedRowData,'uniqueId');
         this.selectedRows = _.union(this.selectedRows,selectedRowsUids);
-        $.each(_selectedRowData, function(index,item){
+        _.each(_selectedRowData, function(item){
           var casesIds = item.caseIds.split(',');
           selectedSamplesUnion = selectedSamplesUnion.concat(casesIds);
         });
         if(this.filters.length === 0 ){
-          this.filters = selectedSamplesUnion;
+          this.filters = selectedSamplesUnion.sort();
         }else{
-          this.filters = _.intersection(this.filters,selectedSamplesUnion);
+          this.filters = iViz.util.intersection(this.filters,selectedSamplesUnion.sort());
         }
+        var self_ = this;
+        var filtersMap = {};
+        _.each(this.filters,function(filter){
+          if(filtersMap[filter] === undefined){
+            filtersMap[filter] = true;
+          }
+        });
+        this.invisibleDimension.filterFunction(function(d){
+          return (filtersMap[d] !== undefined);
+        });
+        dc.redrawAll(this.groupid);
         this.chartInst.clearSelectedRowData();
       },
       addGeneClick: function(clickedRowData) {
@@ -6312,407 +6802,31 @@ var LogRankTest = (function() {
         this.displayName = this.attributes.display_name+'('+numOfCases+' profiled samples)';
       },
       updateFilters: function(){
-        this.$dispatch('update-samples-from-table');
+        this.$dispatch('update-filters');
       }
 
     },
     ready: function() {
       var _self = this;
+      _self.showLoad = true;
       var callbacks = {};
-      var _selectedSampleList = this.$parent.$parent.$parent.selectedsamples;
-      var _selectedGenes = this.$parent.$parent.$parent.$parent.selectedgenes;
-
+      var attrId = this.attributes.group_type==='patient'?'patient_id':'sample_id';
+      this.invisibleDimension  = this.ndx.dimension(function (d) { return d[attrId]; });
+      
       callbacks.addGeneClick = this.addGeneClick;
       callbacks.submitClick = this.submitClick;
-      _self.chartInst = new iViz.view.component.tableView();
+      _self.chartInst = new iViz.view.component.TableView();
+      _self.chartInst.setDownloadDataTypes(['tsv']);
 
-      if(_selectedSampleList.length === 0){
-        _selectedSampleList = this.attributes.options['allCases'];
-      }
-      _self.chartInst.init(this.attributes, _selectedSampleList, _selectedGenes, this.indices, this.data, this.chartId, callbacks);
+      var data = iViz.getAttrData(this.attributes.group_type);
+      _self.chartInst.init(this.attributes, this.$root.selectedsamples, this.$root.selectedgenes, data, this.chartId, callbacks);
       this.setDisplayTitle(this.chartInst.getCases().length);
+      _self.showLoad = false;
       this.$dispatch('data-loaded', true);
     }
   });
 })(window.Vue, window.dc, window.iViz,
   window.$ || window.jQuery);
-/*
- * Copyright (c) 2015 Memorial Sloan-Kettering Cancer Center.
- *
- * This library is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY, WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR FITNESS
- * FOR A PARTICULAR PURPOSE. The software and documentation provided hereunder
- * is on an 'as is' basis, and Memorial Sloan-Kettering Cancer Center has no
- * obligations to provide maintenance, support, updates, enhancements or
- * modifications. In no event shall Memorial Sloan-Kettering Cancer Center be
- * liable to any party for direct, indirect, special, incidental or
- * consequential damages, including lost profits, arising out of the use of this
- * software and its documentation, even if Memorial Sloan-Kettering Cancer
- * Center has been advised of the possibility of such damage.
- */
-
-/*
- * This file is part of cBioPortal.
- *
- * cBioPortal is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-/**
- * Created by Karthik Kalletla on 3/16/16.
- */
-
-'use strict';
-(function(Vue) {
-  Vue.component('editableField', {
-    // template: '#editable-field',
-    props: ['name', 'edit', 'type'],
-    template: '<div v-if="edit"><div v-if="type==\'text\'"><input' +
-    ' type="text" v-model="name" placeholder="My Virtual Study"/></div><div' +
-    ' v-if="type==\'textarea\'"><textarea rows="4" cols="50"' +
-    ' v-model="name"></textarea></div></div><div v-else="edit"><span>{{ name' +
-    ' }}</span></div>'
-  });
-})(window.Vue);
-
-/*
- * Copyright (c) 2015 Memorial Sloan-Kettering Cancer Center.
- *
- * This library is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY, WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR FITNESS
- * FOR A PARTICULAR PURPOSE. The software and documentation provided hereunder
- * is on an 'as is' basis, and Memorial Sloan-Kettering Cancer Center has no
- * obligations to provide maintenance, support, updates, enhancements or
- * modifications. In no event shall Memorial Sloan-Kettering Cancer Center be
- * liable to any party for direct, indirect, special, incidental or
- * consequential damages, including lost profits, arising out of the use of this
- * software and its documentation, even if Memorial Sloan-Kettering Cancer
- * Center has been advised of the possibility of such damage.
- */
-
-/*
- * This file is part of cBioPortal.
- *
- * cBioPortal is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-/**
- * Created by Karthik Kalletla on 3/16/16.
- */
-
-'use strict';
-(function(Vue, iViz, $, Clipboard) {
-  var clipboard = null;
-  $(document).on('mouseleave', '.btn-share', function(e) {
-    $(e.currentTarget).removeClass('tooltipped tooltipped-s');
-    $(e.currentTarget).removeAttr('aria-label');
-  });
-  Vue.component('editableRow', {
-    template: '<tr><td class="text center" ><editable-field' +
-    ' :name.sync="data.studyName" :edit="edit" type="text"/></td><td' +
-    ' class="text center" ><editable-field :name.sync="data.description"' +
-    ' :edit="edit" type="textarea"/></td><td class="text center"' +
-    ' ><span>{{data.patientsLength}}</span></td><td class="text center"' +
-    ' ><span>{{data.samplesLength}}</span></td><td><div class="buttons"' +
-    ' :class="{view: !edit}"><button class="btn btn-info"' +
-    ' @click="clickSave(data)"><em class="fa fa-save"></em></button><button' +
-    ' class="btn btn-default" @click="clickCancel()"><em class="fa' +
-    ' fa-times"></em></button></div><div class="buttons" :class="{view:' +
-    ' !share}"><div class="input-group"> ' +
-    '<input type="text" id="link-to-share" class="form-control"' +
-    'v-model="shortenedLink" disabled><span class="input-group-btn">' +
-    '<button class="btn btn-default btn-share" ' +
-    ' data-clipboard-action="copy" data-clipboard-text={{shortenedLink}}><em' +
-    ' class="fa fa-clipboard" alt="Copy to clipboard"></em></button><button' +
-    ' class="btn btn-default" @click="clickCancel()"><em class="fa' +
-    ' fa-times"></em></button></span></div></div><div class="buttons"' +
-    ' :class="{view: edit||share}"><button class="btn btn-info"' +
-    ' @click="clickEdit(data)"><em class="fa' +
-    ' fa-pencil"></em></button><button class="btn btn-danger"' +
-    ' @click="clickDelete(data)"><em class="fa' +
-    ' fa-trash"></em></button><button class="btn btn-success"' +
-    ' @click="clickShare(data)"><em class="fa' +
-    ' fa-share-alt"></em></button><button class="btn btn-default"' +
-    ' @click="clickImport(data)">Visualize</button></div></td></tr>',
-    props: [
-      'data', 'showmodal'
-    ],
-    data: function() {
-      return {
-        edit: false,
-        share: false,
-        shortenedLink: '---'
-      };
-    },
-    methods: {
-      clickEdit: function(_virtualStudy) {
-        this.backupName = _virtualStudy.studyName;
-        this.backupDesc = _virtualStudy.description;
-        this.edit = true;
-      },
-      clickCancel: function() {
-        if (this.edit) {
-          this.data.studyName = this.backupName;
-          this.data.description = this.backupDesc;
-          this.edit = false;
-        } else if (this.share) {
-          this.share = false;
-        }
-      },
-      clickDelete: function(_virtualStudy) {
-        if (_.isObject(iViz.session)) {
-          iViz.session.events.removeVirtualCohort(_virtualStudy);
-        }
-      },
-      clickSave: function(_virtualStudy) {
-        this.edit = false;
-        if (_virtualStudy.studyName === '') {
-          _virtualStudy.studyName = 'My virtual study';
-        }
-        if (_.isObject(iViz.session)) {
-          iViz.session.events.editVirtualCohort(_virtualStudy);
-        }
-      },
-      clickImport: function(_virtualStudy) {
-        this.showmodal = false;
-        iViz.applyVC(_virtualStudy);
-      },
-      clickShare: function(_virtualStudy) {
-        // TODO: Create Bitly URL
-        var completeURL = window.location.host + '/?vc_id=' +
-          _virtualStudy.virtualCohortID;
-        this.shortenedLink = completeURL;
-        this.share = true;
-        // Check if ClipBoard instance is present, If yes re-initialize the
-        // instance.
-        if (clipboard instanceof Clipboard) {
-          clipboard.destroy();
-        }
-        initializeClipBoard();
-      }
-    }
-  });
-  /**
-   * This method add tooltip when copy button is clicked
-   * @param {Object} elem trigger object
-   * @param {String} msg message to show
-   */
-  function showTooltip(elem, msg) {
-    $(elem).addClass('tooltipped tooltipped-s');
-    $(elem).attr('aria-label', msg);
-  }
-
-  /**
-   * Initialize Clipboard instance
-   */
-  function initializeClipBoard(){
-    var classname = document.getElementsByClassName('btn-share');
-    clipboard = new Clipboard(classname);
-    clipboard.on('success', function(e) {
-      showTooltip(e.trigger, 'Copied');
-    });
-    clipboard.on('error', function(e) {
-      showTooltip(e.trigger, 'Unable to copy');
-    });
-  }
-})(window.Vue, window.iViz,
-  window.$ || window.jQuery, window.Clipboard);
-
-/*
- * Copyright (c) 2015 Memorial Sloan-Kettering Cancer Center.
- *
- * This library is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY, WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR FITNESS
- * FOR A PARTICULAR PURPOSE. The software and documentation provided hereunder
- * is on an 'as is' basis, and Memorial Sloan-Kettering Cancer Center has no
- * obligations to provide maintenance, support, updates, enhancements or
- * modifications. In no event shall Memorial Sloan-Kettering Cancer Center be
- * liable to any party for direct, indirect, special, incidental or
- * consequential damages, including lost profits, arising out of the use of this
- * software and its documentation, even if Memorial Sloan-Kettering Cancer
- * Center has been advised of the possibility of such damage.
- */
-
-/*
- * This file is part of cBioPortal.
- *
- * cBioPortal is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-/**
- * Created by Karthik Kalletla on 3/21/16.
- */
-'use strict';
-(function(Vue) {
-  Vue.component('modaltemplate', {
-    template: '<div class="modal-mask" v-show="show" transition="modal"' +
-    ' @click="show = false"><div class="modal-dialog"' +
-    ' v-bind:class="size" @click.stop><div class="modal-content"><div' +
-    ' class="modal-header"><button type="button" class="close"' +
-    ' @click="close"><span>x</span></button><slot' +
-    ' name="header"></slot></div><div class="modal-body"><slot' +
-    ' name="body"></slot></div><div slot="modal-footer"' +
-    ' class="modal-footer"><slot name="footer"></slot></div></div></div></div>',
-    props: [
-      'show', 'size'
-    ],
-    methods: {
-      close: function() {
-        this.show = false;
-      }
-    },
-    ready: function() {
-      var _this = this;
-      document.addEventListener('keydown', function(e) {
-        if (_this.show && e.keyCode === 27) {
-          _this.close();
-        }
-      });
-    }
-  });
-})(window.Vue);
-
-/*
- * Copyright (c) 2015 Memorial Sloan-Kettering Cancer Center.
- *
- * This library is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY, WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR FITNESS
- * FOR A PARTICULAR PURPOSE. The software and documentation provided hereunder
- * is on an 'as is' basis, and Memorial Sloan-Kettering Cancer Center has no
- * obligations to provide maintenance, support, updates, enhancements or
- * modifications. In no event shall Memorial Sloan-Kettering Cancer Center be
- * liable to any party for direct, indirect, special, incidental or
- * consequential damages, including lost profits, arising out of the use of this
- * software and its documentation, even if Memorial Sloan-Kettering Cancer
- * Center has been advised of the possibility of such damage.
- */
-
-/*
- * This file is part of cBioPortal.
- *
- * cBioPortal is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-/**
- * Created by Karthik Kalletla on 3/21/16.
- */
-
-'use strict';
-(function(Vue, iViz) {
-  Vue.component('addVc', {
-
-    props: {
-      addNewVc: {
-        type: Boolean
-      },
-      fromIViz: {
-        type: Boolean
-      },
-      selectedSamplesNum: {
-        type: Number
-      },
-      selectedPatientsNum: {
-        type: Number
-      },
-      name: {
-        type: String,
-        default: 'My Virtual Cohort'
-      },
-      description: {
-        type: String
-      },
-      cancerStudyId: {
-        type: String
-      }, sample: {
-        type: String
-      }
-
-    },
-    template: '<modaltemplate :show.sync="addNewVc" size="modal-lg"><div' +
-    ' slot="header"><h3 class="modal-title">Save Virtual' +
-    ' Cohorts</h3></div><div slot="body"><div' +
-    ' class="form-group"><label>Number of Samples' +
-    ' :&nbsp;</label><span>{{selectedSamplesNum}}</span></div><br><div' +
-    ' class="form-group"><label>Number of Patients' +
-    ' :&nbsp;</label><span>{{selectedPatientsNum}}</span></div><br><div' +
-    ' class="form-group"><label for="name">Name:</label><input type="text"' +
-    ' class="form-control" v-model="name"  placeholder="My Virtual Cohort"' +
-    ' value="My Virtual Cohort"></div><br><div class="form-group"><label' +
-    ' for="description">Decription:</label><textarea class="form-control"' +
-    ' rows="4" cols="50" v-model="description"></textarea></div></div><div' +
-    ' slot="footer"><button type="button" class="btn btn-default"' +
-    ' @click="addNewVc = false">Cancel</button><button type="button"' +
-    ' class="btn' +
-    ' btn-default"@click="saveCohort()">Save</button></div></modaltemplate>',
-    watch: {
-      addNewVc: function() {
-        this.name = 'My Virtual Cohort';
-        this.description = '';
-      }
-    },
-    methods: {
-      saveCohort: function() {
-        if (_.isObject(iViz.session)) {
-          var _stats = {};
-          if (this.fromIViz) {
-            _stats = iViz.stat();
-          } else {
-            var _selectedCases = iViz.session.utils.buildCaseListObject([],
-              this.cancerStudyId,
-              this.sample);
-            _stats.filters = {patients: {}, samples: {}};
-            _stats.selected_cases = _selectedCases;
-          }
-          iViz.session.events.saveCohort(_stats,
-            this.selectedPatientsNum, this.selectedSamplesNum, null, this.name,
-            this.description || '');
-          this.addNewVc = false;
-          jQuery.notify('Added to new Virtual Study', 'success');
-        }
-      }
-    }
-  });
-})(window.Vue, window.iViz);
-
 'use strict';
 
 var EnhancedFixedDataTableSpecial = (function() {
@@ -8239,7 +8353,7 @@ function Notification() {
 'use strict';
 (function(Vue, dc, iViz, $) {
   var headerCaseSelectCustomDialog = {
-    id: 'study-view-case-select-custom-dialog', // Since we're only creating one modal, give it an ID so we can style it
+    id: 'iviz-case-select-custom-dialog', // Since we're only creating one modal, give it an ID so we can style it
       content: {
       text: '',
         title: {
@@ -8260,9 +8374,9 @@ function Notification() {
       style: 'qtip-light qtip-rounded qtip-wide'
   };
   Vue.component('customCaseInput', {
-    template: '<input type="button" id="study-view-header-right-1" class="study-view-header-button" value="Select cases by IDs"/>' +
-    '<div class="study-view-hidden" id="study-view-case-select-custom-dialog">' +
-    '<b>Please input IDs (one per line)</b><textarea rows="20" cols="50" id="study-view-case-select-custom-input" v-model="casesIdsList"></textarea><br/>' +
+    template: '<input type="button" id="iviz-header-right-1" class="iviz-header-button" value="Select cases by IDs"/>' +
+    '<div class="iviz-hidden" id="iviz-case-select-custom-dialog">' +
+    '<b>Please input IDs (one per line)</b><textarea rows="20" cols="50" id="iviz-case-select-custom-input" v-model="casesIdsList"></textarea><br/>' +
     '<label><input type="radio" v-model="caseSelection" value="sample" checked>' +
     'By sample ID</label><label><input type="radio" v-model="caseSelection" value="patient">' +
     'By patient ID</label><button type="button" @click="SetCasesSelection()" style="float: right;">Select</button></div>',
@@ -8286,9 +8400,802 @@ function Notification() {
     ready: function() {
       var _customDialogQtip = jQuery.extend(true, {}, headerCaseSelectCustomDialog);
       _customDialogQtip.position.target = $(window);
-      _customDialogQtip.content.text = $('#study-view-case-select-custom-dialog');
-      $('#study-view-header-right-1').qtip(_customDialogQtip);
+      _customDialogQtip.content.text = $('#iviz-case-select-custom-dialog');
+      $('#iviz-header-right-1').qtip(_customDialogQtip);
     }
   });
 })(window.Vue, window.dc, window.iViz,
   window.$ || window.jQuery);
+
+/*
+ * Copyright (c) 2015 Memorial Sloan-Kettering Cancer Center.
+ *
+ * This library is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY, WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR FITNESS
+ * FOR A PARTICULAR PURPOSE. The software and documentation provided hereunder
+ * is on an 'as is' basis, and Memorial Sloan-Kettering Cancer Center has no
+ * obligations to provide maintenance, support, updates, enhancements or
+ * modifications. In no event shall Memorial Sloan-Kettering Cancer Center be
+ * liable to any party for direct, indirect, special, incidental or
+ * consequential damages, including lost profits, arising out of the use of this
+ * software and its documentation, even if Memorial Sloan-Kettering Cancer
+ * Center has been advised of the possibility of such damage.
+ */
+
+/*
+ * This file is part of cBioPortal.
+ *
+ * cBioPortal is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
+ * Created by Karthik Kalletla on 3/21/16.
+ */
+'use strict';
+
+window.vcSession = window.vcSession ? window.vcSession : {};
+
+(function(vcSession, _) {
+  if (!_.isObject(vcSession)) {
+    vcSession = {};
+  }
+  vcSession.events = (function() {
+    return {
+      saveCohort: function(stats, selectedPatientsNum, selectedSamplesNum,
+                           userID, name, description) {
+        var _virtualCohort = vcSession.utils.buildVCObject(stats.filters,
+          selectedPatientsNum, selectedSamplesNum, stats.selected_cases,
+          userID,
+          name, description);
+        vcSession.model.saveSession(_virtualCohort);
+      },
+      removeVirtualCohort: function(virtualCohort) {
+        vcSession.model.removeSession(virtualCohort);
+      },
+      editVirtualCohort: function(virtualCohort) {
+        vcSession.model.editSession(virtualCohort);
+      },
+      addSampleToVirtualCohort: function(virtualCohortID, cancerStudyID,
+                                         sampleID) {
+        var _returnString = 'error';
+        var _virtualCohorts = vcSession.utils.getVirtualCohorts();
+        var _studyMatch = _.findWhere(_virtualCohorts, {
+          virtualCohortID: virtualCohortID
+        });
+        if (typeof _studyMatch === 'undefined') {
+          /*
+           TODO : if virtual study is not present in local storage
+           */
+          console.log('virtual cohort not found');
+        } else {
+          var _match = _.findWhere(_studyMatch.selectedCases, {
+            studyID: cancerStudyID
+          });
+          if (typeof _match === 'undefined') {
+            var _selectedCases = vcSession.utils.buildCaseListObject(
+              _studyMatch.selectedCases, cancerStudyID, sampleID);
+            _studyMatch.selectedCases = _selectedCases;
+            _studyMatch.samplesLength += 1;
+            _returnString = 'success';
+          } else if (_.contains(_match.samples, sampleID)) {
+            _returnString = 'warn';
+          } else {
+            _match.samples.push(sampleID);
+            _studyMatch.samplesLength += 1;
+            _returnString = 'success';
+          }
+          this.editVirtualCohort(_studyMatch);
+        }
+        return _returnString;
+      }
+    };
+  })();
+})(window.vcSession,
+  window._);
+
+/*
+ * Copyright (c) 2015 Memorial Sloan-Kettering Cancer Center.
+ *
+ * This library is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY, WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR FITNESS
+ * FOR A PARTICULAR PURPOSE. The software and documentation provided hereunder
+ * is on an 'as is' basis, and Memorial Sloan-Kettering Cancer Center has no
+ * obligations to provide maintenance, support, updates, enhancements or
+ * modifications. In no event shall Memorial Sloan-Kettering Cancer Center be
+ * liable to any party for direct, indirect, special, incidental or
+ * consequential damages, including lost profits, arising out of the use of this
+ * software and its documentation, even if Memorial Sloan-Kettering Cancer
+ * Center has been advised of the possibility of such damage.
+ */
+
+/*
+ * This file is part of cBioPortal.
+ *
+ * cBioPortal is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
+ * Created by Karthik Kalletla on 3/21/16.
+ */
+'use strict';
+window.vcSession = window.vcSession ? window.vcSession : {};
+
+(function(vcSession, _, $) {
+  if(!_.isObject(vcSession)) {
+    vcSession = {};
+  }
+  vcSession.utils = (function() {
+    var virtualCohort_ = {
+      studyName: 'My virtual study',
+      description: 'My virtual study - Description',
+      userID: 'DEFAULT',
+      created: '',
+      filters: '',
+      samplesLength: '',
+      patientsLength: '',
+      selectedCases: ''
+    };
+
+    var selectedCase_ = {
+      studyID: '',
+      samples: [],
+      patients: []
+    };
+
+    var generateUUID_ = function() {
+      var _d = new Date().getTime();
+      if (window.performance && typeof window.performance.now === 'function') {
+        _d += window.performance.now();
+      }
+      var _uuid = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'.replace(/[xy]/g,
+        function(c) {
+          var r = (_d + Math.random() * 16) % 16 | 0;
+          _d = Math.floor(_d / 16);
+          return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+      return _uuid;
+    };
+
+    // Get Virtual cohorts from Local Storage
+    var getVirtualCohorts_ = function() {
+      return JSON.parse(localStorage.getItem('virtual-cohorts')) || [];
+    };
+
+    // Set Virtual cohorts in Local Storage
+    var setVirtualCohorts_ = function(virtualCohorts) {
+      localStorage.setItem('virtual-cohorts', JSON.stringify(virtualCohorts));
+    };
+
+    var buildVCObject_ = function(filters, patientsLength,
+                                  samplesLength, cases, userID, name,
+                                  description) {
+      var _virtualCohort = $.extend(true, {}, virtualCohort_);
+      _virtualCohort.filters = filters;
+      _virtualCohort.selectedCases = cases;
+      _virtualCohort.samplesLength = samplesLength;
+      _virtualCohort.patientsLength = patientsLength;
+      _virtualCohort.created = new Date().getTime();
+      if (name) {
+        _virtualCohort.studyName = name;
+      }
+      if (description) {
+        _virtualCohort.description = description;
+      }
+      if (userID) {
+        _virtualCohort.userID = userID;
+      }
+      return _virtualCohort;
+    };
+    var buildCaseListObject_ = function(selectedCases, cancerStudyID,
+                                        sampleID) {
+      var _selectedCases = selectedCases;
+      var _selectedCase = $.extend(true, {}, selectedCase_);
+      _selectedCase.studyID = cancerStudyID;
+      _selectedCase.samples.push(sampleID);
+      _selectedCases.push(_selectedCase);
+      return _selectedCases;
+    };
+
+    return {
+      buildVCObject: buildVCObject_,
+      setVirtualCohorts: setVirtualCohorts_,
+      getVirtualCohorts: getVirtualCohorts_,
+      generateUUID: generateUUID_,
+      buildCaseListObject: buildCaseListObject_
+    };
+  })();
+})(window.vcSession,
+  window._,
+  window.$ || window.jQuery);
+
+/*
+ * Copyright (c) 2015 Memorial Sloan-Kettering Cancer Center.
+ *
+ * This library is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY, WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR FITNESS
+ * FOR A PARTICULAR PURPOSE. The software and documentation provided hereunder
+ * is on an 'as is' basis, and Memorial Sloan-Kettering Cancer Center has no
+ * obligations to provide maintenance, support, updates, enhancements or
+ * modifications. In no event shall Memorial Sloan-Kettering Cancer Center be
+ * liable to any party for direct, indirect, special, incidental or
+ * consequential damages, including lost profits, arising out of the use of this
+ * software and its documentation, even if Memorial Sloan-Kettering Cancer
+ * Center has been advised of the possibility of such damage.
+ */
+
+/*
+ * This file is part of cBioPortal.
+ *
+ * cBioPortal is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
+ * Created by Karthik Kalletla on 3/21/16.
+ */
+
+'use strict';
+window.vcSession = window.vcSession ? window.vcSession : {};
+
+(function(vcSession, _, $) {
+  if(!_.isObject(vcSession)) {
+    vcSession = {};
+  }
+  vcSession.model = (function() {
+    var localStorageAdd_ = function(id, virtualCohort) {
+      virtualCohort.virtualCohortID = id;
+      var _virtualCohorts = vcSession.utils.getVirtualCohorts();
+      _virtualCohorts.push(virtualCohort);
+      vcSession.utils.setVirtualCohorts(_virtualCohorts);
+    };
+
+    var localStorageDelete_ = function(virtualCohort) {
+      var _virtualCohorts = vcSession.utils.getVirtualCohorts();
+      _virtualCohorts = _.without(_virtualCohorts, _.findWhere(_virtualCohorts,
+        {virtualCohortID: virtualCohort.virtualCohortID}));
+      vcSession.utils.setVirtualCohorts(_virtualCohorts);
+    };
+
+    var localStorageEdit_ = function(updateVirtualCohort) {
+      var _virtualCohorts = vcSession.utils.getVirtualCohorts();
+      _.extend(_.findWhere(_virtualCohorts, {
+        virtualCohortID: updateVirtualCohort.virtualCohortID
+      }), updateVirtualCohort);
+      vcSession.utils.setVirtualCohorts(_virtualCohorts);
+    };
+
+    return {
+      saveSession: function(virtualCohort) {
+        var data = {
+          virtualCohort: virtualCohort
+        };
+        $.ajax({
+          type: 'POST',
+          url:  vcSession.URL,
+          contentType: 'application/json;charset=UTF-8',
+          data: JSON.stringify(data)
+        }).done(function(response) {
+          if(virtualCohort.userID === 'DEFAULT')
+          localStorageAdd_(response.id,
+            virtualCohort);
+        }).fail(function() {
+          localStorageAdd_(vcSession.utils.generateUUID(),
+            virtualCohort);
+        });
+      },
+      removeSession: function(_virtualCohort) {
+        $.ajax({
+          type: 'DELETE',
+          url:  vcSession.URL + _virtualCohort.virtualCohortID,
+          contentType: 'application/json;charset=UTF-8'
+        }).done(function() {
+          if(_virtualCohort.userID === 'DEFAULT')
+          localStorageDelete_(_virtualCohort);
+        }).fail(function() {
+          localStorageDelete_(_virtualCohort);
+        });
+      },
+      editSession: function(_virtualCohort) {
+        var data = {
+          virtualCohort: _virtualCohort
+        };
+        $.ajax({
+          type: 'PUT',
+          url:  vcSession.URL + _virtualCohort.virtualCohortID,
+          contentType: 'application/json;charset=UTF-8',
+          data: JSON.stringify(data)
+        }).done(function(response) {
+          if(_virtualCohort.userID === 'DEFAULT')
+          localStorageEdit_(data.virtualCohort);
+        }).fail(function(jqXHR) {
+          if (jqXHR.status === 404) {
+            localStorageDelete_(_virtualCohort);
+            vcSession.model.saveSession(_virtualCohort);
+          } else {
+            localStorageEdit_(_virtualCohort);
+          }
+        });
+      },
+      loadUserVirtualCohorts: function(userID) {
+        var def = new $.Deferred();
+        $.ajax({
+          type: 'GET',
+          url:  vcSession.URL + 'query/',
+          contentType: 'application/json;charset=UTF-8',
+          data: { field : 'data.virtualCohort.userID',
+            value : userID}
+        }).done(function(response) {
+          var _virtualCohorts = [];
+          $.each(response, function(key, val) {
+            var _virtualCohort = val.data.virtualCohort;
+            _virtualCohort.virtualCohortID = val.id;
+            _virtualCohorts.push(_virtualCohort);
+          });
+          def.resolve(_virtualCohorts);
+          //vcSession.utils.setVirtualCohorts(_virtualCohorts);
+        }).fail(function() {
+          console.log('unable to get user virtual cohorts');
+          def.reject();
+        });
+        return def.promise();
+      },
+
+      getVirtualCohortDetails: function(virtualCohortID) {
+       /* $.getJSON( vcSession.URL + virtualCohortID, function(response) {
+          iViz.applyVC(_.omit(response.data.virtualCohort,
+            ['created', 'userID', 'virtualCohortID']));
+          jQuery.notify('Imported Virtual Cohort', 'success');
+        }).fail(function() {
+          var virtualCohort_ = _.findWhere(vcSession.utils.getVirtualCohorts(), {
+            virtualCohortID: virtualCohortID
+          });
+          if (virtualCohort_ !== undefined) {
+            iViz.applyVC(_.omit(virtualCohort_,
+              ['created', 'userID', 'virtualCohortID']));
+            jQuery.notify('Imported Virtual Cohort', 'success');
+          } else {
+            jQuery.notify('Error While importing Virtual Cohort', 'error');
+          }
+        });*/
+      }
+    };
+  })();
+})(window.vcSession,
+  window._,
+  window.$ || window.jQuery);
+
+/*
+ * Copyright (c) 2015 Memorial Sloan-Kettering Cancer Center.
+ *
+ * This library is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY, WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR FITNESS
+ * FOR A PARTICULAR PURPOSE. The software and documentation provided hereunder
+ * is on an 'as is' basis, and Memorial Sloan-Kettering Cancer Center has no
+ * obligations to provide maintenance, support, updates, enhancements or
+ * modifications. In no event shall Memorial Sloan-Kettering Cancer Center be
+ * liable to any party for direct, indirect, special, incidental or
+ * consequential damages, including lost profits, arising out of the use of this
+ * software and its documentation, even if Memorial Sloan-Kettering Cancer
+ * Center has been advised of the possibility of such damage.
+ */
+
+/*
+ * This file is part of cBioPortal.
+ *
+ * cBioPortal is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
+ * Created by Karthik Kalletla on 3/16/16.
+ */
+
+'use strict';
+(function(Vue) {
+  Vue.component('editableField', {
+    // template: '#editable-field',
+    props: ['name', 'edit', 'type'],
+    template: '<div v-if="edit"><div v-if="type==\'text\'"><input' +
+    ' type="text" v-model="name" placeholder="My Virtual Study"/></div><div' +
+    ' v-if="type==\'textarea\'"><textarea rows="4" cols="50"' +
+    ' v-model="name"></textarea></div></div><div v-else="edit"><span>{{ name' +
+    ' }}</span></div>'
+  });
+})(window.Vue);
+
+/*
+ * Copyright (c) 2015 Memorial Sloan-Kettering Cancer Center.
+ *
+ * This library is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY, WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR FITNESS
+ * FOR A PARTICULAR PURPOSE. The software and documentation provided hereunder
+ * is on an 'as is' basis, and Memorial Sloan-Kettering Cancer Center has no
+ * obligations to provide maintenance, support, updates, enhancements or
+ * modifications. In no event shall Memorial Sloan-Kettering Cancer Center be
+ * liable to any party for direct, indirect, special, incidental or
+ * consequential damages, including lost profits, arising out of the use of this
+ * software and its documentation, even if Memorial Sloan-Kettering Cancer
+ * Center has been advised of the possibility of such damage.
+ */
+
+/*
+ * This file is part of cBioPortal.
+ *
+ * cBioPortal is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
+ * Created by Karthik Kalletla on 3/16/16.
+ */
+
+'use strict';
+(function(Vue, vcSession, $, Clipboard) {
+  var clipboard = null;
+  $(document).on('mouseleave', '.btn-share', function(e) {
+    $(e.currentTarget).removeClass('tooltipped tooltipped-s');
+    $(e.currentTarget).removeAttr('aria-label');
+  });
+  Vue.component('editableRow', {
+    template: '<tr><td class="text center" ><editable-field' +
+    ' :name.sync="data.studyName" :edit="edit" type="text"/></td><td' +
+    ' class="text center" ><editable-field :name.sync="data.description"' +
+    ' :edit="edit" type="textarea"/></td><td class="text center"' +
+    ' ><span>{{data.patientsLength}}</span></td><td class="text center"' +
+    ' ><span>{{data.samplesLength}}</span></td><td><div class="buttons"' +
+    ' :class="{view: !edit}"><button class="btn btn-info"' +
+    ' @click="clickSave(data)"><em class="fa fa-save"></em></button><button' +
+    ' class="btn btn-default" @click="clickCancel()"><em class="fa' +
+    ' fa-times"></em></button></div><div class="buttons" :class="{view:' +
+    ' !share}"><div class="input-group"> ' +
+    '<input type="text" id="link-to-share" class="form-control"' +
+    'v-model="shortenedLink" disabled><span class="input-group-btn">' +
+    '<button class="btn btn-default btn-share" ' +
+    ' data-clipboard-action="copy" data-clipboard-text={{shortenedLink}}><em' +
+    ' class="fa fa-clipboard" alt="Copy to clipboard"></em></button><button' +
+    ' class="btn btn-default" @click="clickCancel()"><em class="fa' +
+    ' fa-times"></em></button></span></div></div><div class="buttons"' +
+    ' :class="{view: edit||share}"><button class="btn btn-info"' +
+    ' @click="clickEdit(data)"><em class="fa' +
+    ' fa-pencil"></em></button><button class="btn btn-danger"' +
+    ' @click="clickDelete(data)"><em class="fa' +
+    ' fa-trash"></em></button><button class="btn btn-success"' +
+    ' @click="clickShare(data)"><em class="fa' +
+    ' fa-share-alt"></em></button><button class="btn btn-default"' +
+    ' @click="clickImport(data)">Visualize</button></div></td></tr>',
+    props: [
+      'data', 'showmodal'
+    ], created: function() {
+      this.edit = false,
+        this.share = false,
+        this.shortenedLink = '---'
+  },
+    data: function() {
+      return {
+        edit: false,
+        share: false,
+        shortenedLink: '---'
+      };
+    },
+    methods: {
+      clickEdit: function(_virtualStudy) {
+        this.backupName = _virtualStudy.studyName;
+        this.backupDesc = _virtualStudy.description;
+        this.edit = true;
+      },
+      clickCancel: function() {
+        if (this.edit) {
+          this.data.studyName = this.backupName;
+          this.data.description = this.backupDesc;
+          this.edit = false;
+        } else if (this.share) {
+          this.share = false;
+        }
+      },
+      clickDelete: function(_virtualStudy) {
+        if (_.isObject(vcSession)) {
+          this.$dispatch('remove-cohort',_virtualStudy);
+          vcSession.events.removeVirtualCohort(_virtualStudy);
+        }
+      },
+      clickSave: function(_virtualStudy) {
+        this.edit = false;
+        if (_virtualStudy.studyName === '') {
+          _virtualStudy.studyName = 'My virtual study';
+        }
+        if (_.isObject(vcSession)) {
+          vcSession.events.editVirtualCohort(_virtualStudy);
+        }
+      },
+      clickImport: function(_virtualStudy) {
+        this.showmodal = false;
+        //TODO: need to update functionality
+        //iViz.applyVC(_virtualStudy);
+      },
+      clickShare: function(_virtualStudy) {
+        // TODO: Create Bitly URL
+        var completeURL = window.location.host + '/?vc_id=' +
+          _virtualStudy.virtualCohortID;
+        this.shortenedLink = completeURL;
+        this.share = true;
+        // Check if ClipBoard instance is present, If yes re-initialize the
+        // instance.
+        if (clipboard instanceof Clipboard) {
+          clipboard.destroy();
+        }
+        initializeClipBoard();
+      }
+    }
+  });
+  /**
+   * This method add tooltip when copy button is clicked
+   * @param {Object} elem trigger object
+   * @param {String} msg message to show
+   */
+  function showTooltip(elem, msg) {
+    $(elem).addClass('tooltipped tooltipped-s');
+    $(elem).attr('aria-label', msg);
+  }
+
+  /**
+   * Initialize Clipboard instance
+   */
+  function initializeClipBoard(){
+    var classname = document.getElementsByClassName('btn-share');
+    clipboard = new Clipboard(classname);
+    clipboard.on('success', function(e) {
+      showTooltip(e.trigger, 'Copied');
+    });
+    clipboard.on('error', function(e) {
+      showTooltip(e.trigger, 'Unable to copy');
+    });
+  }
+})(window.Vue, window.vcSession,
+  window.$ || window.jQuery, window.Clipboard);
+
+/*
+ * Copyright (c) 2015 Memorial Sloan-Kettering Cancer Center.
+ *
+ * This library is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY, WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR FITNESS
+ * FOR A PARTICULAR PURPOSE. The software and documentation provided hereunder
+ * is on an 'as is' basis, and Memorial Sloan-Kettering Cancer Center has no
+ * obligations to provide maintenance, support, updates, enhancements or
+ * modifications. In no event shall Memorial Sloan-Kettering Cancer Center be
+ * liable to any party for direct, indirect, special, incidental or
+ * consequential damages, including lost profits, arising out of the use of this
+ * software and its documentation, even if Memorial Sloan-Kettering Cancer
+ * Center has been advised of the possibility of such damage.
+ */
+
+/*
+ * This file is part of cBioPortal.
+ *
+ * cBioPortal is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
+ * Created by Karthik Kalletla on 3/21/16.
+ */
+'use strict';
+(function(Vue) {
+  Vue.component('modaltemplate', {
+    template: '<div class="modal-mask" v-show="show" transition="modal"' +
+    ' @click="show = false"><div class="modal-dialog"' +
+    ' v-bind:class="size" @click.stop><div class="modal-content"><div' +
+    ' class="modal-header"><button type="button" class="close"' +
+    ' @click="close"><span>x</span></button><slot' +
+    ' name="header"></slot></div><div class="modal-body"><slot' +
+    ' name="body"></slot></div><div slot="modal-footer"' +
+    ' class="modal-footer"><slot name="footer"></slot></div></div></div></div>',
+    props: [
+      'show', 'size'
+    ],
+    methods: {
+      close: function() {
+        this.show = false;
+      }
+    },
+    ready: function() {
+      var _this = this;
+      document.addEventListener('keydown', function(e) {
+        if (_this.show && e.keyCode === 27) {
+          _this.close();
+        }
+      });
+    }
+  });
+})(window.Vue);
+
+/*
+ * Copyright (c) 2015 Memorial Sloan-Kettering Cancer Center.
+ *
+ * This library is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY, WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR FITNESS
+ * FOR A PARTICULAR PURPOSE. The software and documentation provided hereunder
+ * is on an 'as is' basis, and Memorial Sloan-Kettering Cancer Center has no
+ * obligations to provide maintenance, support, updates, enhancements or
+ * modifications. In no event shall Memorial Sloan-Kettering Cancer Center be
+ * liable to any party for direct, indirect, special, incidental or
+ * consequential damages, including lost profits, arising out of the use of this
+ * software and its documentation, even if Memorial Sloan-Kettering Cancer
+ * Center has been advised of the possibility of such damage.
+ */
+
+/*
+ * This file is part of cBioPortal.
+ *
+ * cBioPortal is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
+ * Created by Karthik Kalletla on 3/21/16.
+ */
+
+'use strict';
+(function(Vue, vcSession) {
+  Vue.component('addVc', {
+
+    template: '<modaltemplate :show.sync="addNewVc" size="modal-lg"><div' +
+    ' slot="header"><h3 class="modal-title">Save Virtual' +
+    ' Cohorts</h3></div><div slot="body"><div' +
+    ' class="form-group"><label>Number of Samples' +
+    ' :&nbsp;</label><span>{{selectedSamplesNum}}</span></div><br><div' +
+    ' class="form-group"><label>Number of Patients' +
+    ' :&nbsp;</label><span>{{selectedPatientsNum}}</span></div><br><div' +
+    ' class="form-group"><label for="name">Name:</label><input type="text"' +
+    ' class="form-control" v-model="name"  placeholder="My Virtual Cohort"' +
+    ' value="My Virtual Cohort"></div><br><div class="form-group"><label' +
+    ' for="description">Decription:</label><textarea class="form-control"' +
+    ' rows="4" cols="50" v-model="description"></textarea></div></div><div' +
+    ' slot="footer"><button type="button" class="btn btn-default"' +
+    ' @click="addNewVc = false">Cancel</button><button type="button"' +
+    ' class="btn' +
+    ' btn-default"@click="saveCohort()">Save</button></div></modaltemplate>',
+    props: [ 'selectedSamplesNum',
+      'selectedPatientsNum',
+      'userid',
+      'stats','addNewVc','updateStats'],
+    data: function() {
+      return{
+        name:'My Virtual Cohort',
+        description:''
+      }
+    },
+    watch: {
+      addNewVc: function() {
+        this.name = 'My Virtual Cohort';
+        this.description = '';
+      }
+    },
+    methods: {
+      saveCohort: function() {
+        if (_.isObject(vcSession)) {
+          var self_ = this;
+          self_.updateStats = true;
+          self_.$nextTick(function(){
+            vcSession.events.saveCohort(self_.stats,
+              self_.selectedPatientsNum, self_.selectedSamplesNum, self_.userid, self_.name,
+              self_.description || '');
+            self_.addNewVc = false;
+            jQuery.notify('Added to new Virtual Study', 'success');
+          })
+        }
+      }
+    }
+  });
+})(window.Vue, window.vcSession);
+
+/**
+ * Created by kalletlak on 7/19/16.
+ */
+'use strict';
+(function (Vue, $, vcSession) {
+  Vue.component('sessionComponent', {
+    template: '<div id="cohort-component"><button v-if="showSaveButton" type="button" class="btn btn-default" ' +
+    '@click="addNewVC = true" id="save_cohort_btn">Save Cohort </button> <button v-if="showManageButton" type="button" ' +
+    'class="btn btn-default" @click="manageCohorts()"> <i class="fa fa-bars"></i> </button> ' +
+    '<add-vc :add-new-vc.sync="addNewVC" :selected-samples-num="selectedSamplesNum" ' +
+    ':selected-patients-num="selectedPatientsNum" :userid="userid" :stats="stats" :update-stats.sync="updateStats"></add-vc> ' +
+    '<modaltemplate :show.sync="showVCList" size="modal-xlg"> <div slot="header"> ' +
+    '<h4 class="modal-title">Virtual Cohorts</h4> </div> <div slot="body"> ' +
+    '<table class="table table-bordered table-hover table-condensed"> ' +
+    '<thead> <tr style="font-weight: bold"> <td style="width:20%">Name</td>' +
+    ' <td style="width:40%">Description</td> <td style="width:10%">Patients</td> ' +
+    '<td style="width:10%">Samples</td> <td style="width:20%">Operations</td> </tr> ' +
+    '</thead> <tr is="editable-row" :data="virtualCohort" :showmodal.sync="showVCList" ' +
+    'v-for="virtualCohort in virtualCohorts"> </tr> </table> </div> <div slot="footer"> ' +
+    '</div> </modaltemplate> </div> </nav> </div>',
+    props: [
+      'selectedPatientsNum', 'selectedSamplesNum', 'userid', 'showSaveButton', 'showManageButton', 'stats', 'updateStats'
+    ],
+    data: function () {
+      return {
+        showVCList: false,
+        addNewVC: false,
+        virtualCohorts: []
+      }
+    }, events: {
+      'remove-cohort': function (cohort) {
+        this.virtualCohorts.$remove(cohort);
+      }
+    }, methods: {
+      manageCohorts: function () {
+        this.showVCList = true;
+        if (this.userid !== undefined && this.userid !== 'DEFAULT') {
+          this.virtualCohorts = vcSession.model.loadUserVirtualCohorts();
+        } else {
+          this.virtualCohorts = vcSession.utils.getVirtualCohorts();
+        }
+      }
+    }
+  });
+})(window.Vue,
+  window.$ || window.jQuery, window.vcSession);
