@@ -835,6 +835,7 @@ function GeneValidator(geneAreaId, geneModel){
     // create a notification of a certain type
     function addNotification(message, message_type){
         notificationSettings.message_type = message_type;
+        notificationSettings.delay = 50000;
         new Notification().createNotification(message, notificationSettings);
         nrOfNotifications = $(".alert").length;
     }
@@ -3402,14 +3403,14 @@ var iViz = (function (_, $) {
     '<div style="float:left" v-if="showLogScale"></input style="float:left"><input type="checkbox" value="" id="" ' +
     'class="bar-x-log" v-model="logChecked">' +
     '<span id="scale-span-{{chartId}}" style="float:left; font-size:10px; margin-right: 15px; color: grey">Log Scale X</span></div>' +
-    '<img v-if="showTableIcon" src="images/table.svg" class="icon hover" @click="changeView()"/>' +
-    '<img v-if="showPieIcon" src="images/pie.svg" class="icon hover" @click="changeView()"/>' +
+    '<i v-if="showTableIcon" class="fa fa-table icon hover" aria-hidden="true" @click="changeView()"></i>' +
+    '<i v-if="showPieIcon" class="fa fa-pie-chart icon hover" aria-hidden="true" @click="changeView()"></i>' +
     '<img v-if="showSurvivalIcon" src="images/survival_icon.svg" class="icon hover"/>' +
     '<div id="{{chartId}}-download-icon-wrapper" class="download">' +
-    '<img src="images/in.svg" class="icon hover" id="{{chartId}}-download"/>' +
+    '<i class="fa fa-download icon hover" alt="download" id="{{chartId}}-download"></i>' +
     '</div>' +
-    '<img src="images/move.svg" class="dc-chart-drag icon" class="icon"/>' +
-    '<div style="float:right"><i class="fa fa-times dc-chart-pointer icon" style="margin-top:0px;font-size:16px" @click="close()"></i></div>' +
+    '<i class="fa fa-arrows dc-chart-drag icon" aria-hidden="true"></i>' +
+    '<div style="float:right"><i class="fa fa-times dc-chart-pointer icon" @click="close()"></i></div>' +
     '</div>' +
     '</div>',
     props: [
@@ -3616,18 +3617,18 @@ var iViz = (function (_, $) {
         '<span v-if="(filtersToSkipShowing.indexOf(attributes.attr_id) === -1) && (attributes.view_type ! == \'table\')" class="breadcrumb_items">' +
           '<span v-if="filters.filterType === \'RangedFilter\'">' +
             '<span class="breadcrumb_item">{{filters[0]}} -- {{filters[1]}}</span>' +
-            '<img class="breadcrumb_remove" src="../../../../images/remove_breadcrumb_icon.png" @click="removeFilter(filters)">' +
+            '<i class="fa fa-times breadcrumb_remove" @click="removeFilter()"></i>' +
           '</span>' +
           '<template v-else>' +
             '<span v-for="filter in filters" style="display:inline-block;">' +
               '<span v-if="attributes.view_type === \'table\'"  class="breadcrumb_item">{{filter.uniqueId}}</span>' +
               '<span v-else class="breadcrumb_item">{{filter}}</span>' +
-              '<img class="breadcrumb_remove" src="../../../../images/remove_breadcrumb_icon.png" @click="removeFilter(filter)">' +
+              '<i class="fa fa-times breadcrumb_remove" @click="removeFilter(filter)"></i>' +
             '</span>' +
           '</template>' +
         '</span>' +
         '<template v-else>' +
-          '<img class="breadcrumb_remove" src="../../../../images/remove_breadcrumb_icon.png" @click="removeFilter()">' +
+          '<i class="fa fa-times breadcrumb_remove" @click="removeFilter()"></i>' +
         '</template>' +
       '</span>',
     props: [
