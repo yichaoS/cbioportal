@@ -134,6 +134,9 @@ var LogRankTest = function() {
         calc: function(inputGrp1, inputGrp2, _callBackFunc) {
             mergedArr.length = 0;
             mergeGrps(inputGrp1, inputGrp2, _callBackFunc);
+            //calcExpection(_callBackFunc);
+            //calcVariance();
+            //calcPval(_callBackFunc);
         }
     };
 };
