@@ -125,7 +125,6 @@ var LogRankTest = function() {
         var chi_square_score = (O1 - E1) * (O1 - E1) / V;
         $.post( "calcPval.do", { chi_square_score: chi_square_score })
             .done( function(_data) {
-                console.log("original result:" + _data);
                 callBackFunc = _callBackFunc;
                 callBackFunc(_data);
             });
@@ -135,9 +134,6 @@ var LogRankTest = function() {
         calc: function(inputGrp1, inputGrp2, _callBackFunc) {
             mergedArr.length = 0;
             mergeGrps(inputGrp1, inputGrp2, _callBackFunc);
-            //calcExpection(_callBackFunc);
-            //calcVariance();
-            //calcPval(_callBackFunc);
         }
     };
 };
