@@ -35,22 +35,34 @@
 <%@ page import="org.mskcc.cbio.portal.servlet.PatientView" %>
 <%@ page import="org.mskcc.cbio.portal.util.GlobalProperties" %>
 
+
+
+<script src="js/lib/vc-dashboard.js"></script>
 <script src="js/src/dashboard/iviz-vendor.js"></script>
 <script src="js/src/dashboard/iviz.js"></script>
 <script src="js/src/dashboard/model/dataProxy.js"></script>
+
+<script src="js/src/study-view/component/QueryByGeneTextArea.js"></script>
+<script src="js/src/study-view/component/Notification.js"></script>
+
+<script src="js/src/study-view/util/QueryByGeneUtil.js"></script>
+<script src="js/src/study-view/util/GeneValidator.js"></script>
 
 <script src="https://rawgit.com/notifyjs/notifyjs/master/dist/notify.js"></script>
 <script src="js/lib/jquery.tipTip.minified.js"></script>
 <script src="js/lib/mailme.js"></script>
 <script src="js/lib/jquery-ui.min.js"></script>
 
+<link rel="stylesheet" href="css/vc-session.css"/>
 <link rel="stylesheet" href="css/dashboard/iviz-vendor.css"/>
 <link rel="stylesheet" href="css/dashboard/iviz.css"/>
 
 
 <style>
-    #complete-screen .grid {
-        top: 30px;
+    /* This style needs to be moved to some scss/css files */
+    #summary.study-section {
+        padding-left: 5px;
+        padding-right: 5px;
     }
 </style>
 
@@ -90,7 +102,7 @@
 
             </div>
 
-            <div id="iviz-header-right" style="margin-right:30px;">
+            <div id="iviz-header-right">
                 <custom-case-input></custom-case-input>
 
                 <select id="iviz-add-chart" class="chosen-select"
