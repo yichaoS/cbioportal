@@ -916,33 +916,25 @@ var iViz = (function (_, $) {
     };
 
     content.idMapping = function(mappingObj, inputCases) {
-      var _selectedMappingCases = [];
-      _selectedMappingCases.length = 0;
-      var resultArr_ = [];
-      var tempArr_ = {};
+      var _selectedMappingCases = {};
+
       _.each(inputCases, function(_case) {
-        _.each(mappingObj[_case],function(_caseSel){
-          if(tempArr_[_caseSel] === undefined){
-            tempArr_[_caseSel] = true;
-            resultArr_.push(_caseSel)
-          }
+        _.each(mappingObj[_case], function(_case) {
+          _selectedMappingCases[_case] = '';
         });
-        //_selectedMappingCases = _selectedMappingCases.concat(mappingObj[_case]);
       });
-      return resultArr_;
-      //return content.unique(_selectedMappingCases);
+
+      return Object.keys(_selectedMappingCases);
     };
     
     content.unique = function(arr_){
-      var resultArr_ = [];
       var tempArr_ = {};
       _.each(arr_,function(obj_){
         if(tempArr_[obj_] === undefined){
           tempArr_[obj_] = true;
-          resultArr_.push(obj_);
         }
       });
-      return resultArr_;
+      return Object.keys(tempArr_);
     };
 
     content.isRangeFilter = function(filterObj) {
@@ -2532,7 +2524,16 @@ var iViz = (function (_, $) {
     var maxLabelValue = 0;
     var currentView = 'pie';
     var updateQtip = true;
+    
+    /**
+     * Only will be initialized at first time. Label name as key, contains color.
+     * @type {{}}
+     */
+    var labelInitData = {};
 
+    var dcGroup_ = '';
+    var dcDimension_ = '';
+    
     initDCPieChart();
     
     content.getChart = function() {
@@ -2611,6 +2612,11 @@ var iViz = (function (_, $) {
       }
     }
 
+    content.filtered = function() {
+      updatePieLabels();
+      updateQtip = false;
+    }
+
     /**
      * This is the function to initialize dc pie chart instance.
      */
@@ -2641,12 +2647,24 @@ var iViz = (function (_, $) {
           color.splice(NAIndex, 0, '#CCCCCC');
         }
 
+        // Initial labels data with colors.
+        _.each(v.data.attrKeys, function(attr, index) {
+          labelInitData[attr] = {
+            attr: attr,
+            color: color[index],
+            id: index
+          };
+        });
+
+        dcDimension_ = cluster;
+        dcGroup_ = cluster.group();
+        
         v.chart
           .width(width)
           .height(height)
           .radius(radius)
-          .dimension(cluster)
-          .group(cluster.group())
+          .dimension(dcDimension_)
+          .group(dcGroup_)
           .transitionDuration(v.opts.transitionDuration || 400)
           .ordinalColors(color)
           .label(function(d) {
@@ -2742,41 +2760,28 @@ var iViz = (function (_, $) {
       var _labels = [];
       currentSampleSize = 0;
 
-      $('#' + v.opts.chartId + '>svg>g>g').each(function(){
+      var labels = dcGroup_.top(Infinity);
+
+      _.each(labels, function(label, index) {
         var _labelDatum = {};
-        var _labelText = $(this).find('title').text();
-        var _color = $(this).find('path').attr('fill');
-        var _pointsInfo = $(this).find('path').attr('d').split(/[\s,MLHVCSQTAZ]/);
-        var _labelName = _labelText.substring(0, _labelText.lastIndexOf(":"));
-        var _labelValue = Number(_labelText.substring(_labelText.lastIndexOf(":")+1).trim());
+        var _labelValue = Number(label.value);
 
-        if(_pointsInfo.length >= 10){
+        _labelDatum.id = labelInitData[label.key].id;
+        _labelDatum.name = label.key;
+        _labelDatum.color = labelInitData[label.key].color;
+        _labelDatum.parentID = v.opts.chartId;
+        _labelDatum.samples = _labelValue;
 
-          var _x1 = Number( _pointsInfo[1] ),
-            _y1 = Number( _pointsInfo[2] ),
-            _x2 = Number( _pointsInfo[8] ),
-            _y2 = Number( _pointsInfo[9] );
+        currentSampleSize += _labelValue;
 
-          if(Math.abs(_x1 - _x2) > 0.01 || Math.abs(_y1 - _y2) > 0.01){
-            _labelDatum.id = _labelID;
-            _labelDatum.name = _labelName;
-            _labelDatum.color = _color;
-            _labelDatum.parentID = v.opts.chartId;
-            _labelDatum.samples = _labelValue;
-            currentSampleSize += _labelValue;
-
-            if(maxLabelValue < _labelValue) {
-              maxLabelValue = _labelValue;
-            }
-            _labels.push(_labelDatum);
-          }
-          _labelID++;
-        }else{
-          // StudyViewUtil.echoWarningMessg("Initial Label Error");
+        if (maxLabelValue < _labelValue) {
+          maxLabelValue = _labelValue;
         }
-        _.each(_labels, function(label) {
-          label.sampleRate = ( currentSampleSize <= 0 ? 0 : (Number(label.samples) * 100 / currentSampleSize).toFixed(1).toString()) + '%'
-        });
+        _labels.push(_labelDatum);
+      });
+
+      _.each(_labels, function(label) {
+        label.sampleRate = (currentSampleSize <= 0 ? 0 : (Number(label.samples) * 100 / currentSampleSize).toFixed(1).toString()) + '%';
       });
 
       return _labels;
@@ -2833,36 +2838,18 @@ var iViz = (function (_, $) {
       var _labels = [];
       currentSampleSize = 0;
 
-      $('#' + v.opts.chartId + '>svg>g>g').each(function(){
-        var _labelText = $(this).find('title').text();
-        var _pointsInfo = $(this).find('path').attr('d').split(/[\s,MLHVCSQTAZ]/);
-        var _labelName = _labelText.substring(0, _labelText.lastIndexOf(":"));
-        var _labelValue = Number(_labelText.substring(_labelText.lastIndexOf(":")+1).trim());
+      _.each(dcGroup_.top(Infinity), function(category) {
+        var _label = findLabel(category.key);
+        if (_label) {
+          _label.samples = category.value;
+          currentSampleSize += Number(category.value);
+          _labels.push(_label);
+        }
 
-        if(_pointsInfo.length >= 10){
-
-          var _x1 = Number( _pointsInfo[1] ),
-            _y1 = Number( _pointsInfo[2] ),
-            _x2 = Number( _pointsInfo[8] ),
-            _y2 = Number( _pointsInfo[9] );
-
-          if(Math.abs(_x1 - _x2) > 0.01 || Math.abs(_y1 - _y2) > 0.01){
-            var _label = findLabel(_labelName);
-            if(_label) {
-              _label.samples = _labelValue;
-              currentSampleSize += _labelValue;
-              _labels.push(_label);
-            }
-
-            if(maxLabelValue < _labelValue) {
-              maxLabelValue = _labelValue;
-            }
-          }
-        }else{
-          //StudyViewUtil.echoWarningMessg("Initial Label Error");
+        if (maxLabelValue < category.value) {
+          maxLabelValue = category.value;
         }
       });
-
       return _labels;
     }
 
@@ -3274,6 +3261,8 @@ var iViz = (function (_, $) {
           }else{
             _self.filtersUpdated = false;
           }
+          // Trigger pie chart filtered event.
+          _self.piechart.filtered();
         });
         _self.$dispatch('data-loaded', true);
       

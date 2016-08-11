@@ -37,9 +37,10 @@
 
 
 
-<script src="js/lib/vc-dashboard.js"></script>
 <script src="js/src/dashboard/iviz-vendor.js"></script>
 <script src="js/src/dashboard/iviz.js"></script>
+
+<script src="js/lib/vc-session.js"></script>
 <script src="js/src/dashboard/model/dataProxy.js"></script>
 
 <script src="js/src/study-view/component/QueryByGeneTextArea.js"></script>
@@ -154,7 +155,7 @@
                 window.style.vars.barchartWidth = 350;
                 window.style.vars.barchartHeight = 120;
             });
-        window.cbioURL = window.location.origin + '/cbioportal';
+        window.cbioURL = window.location.origin + '/dashboard';
         window.mutationProfileId = window.mutationProfileId;
         window.cnaProfileId = window.cnaProfileId;
         window.case_set_id = window.caseSetId;
