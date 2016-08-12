@@ -644,7 +644,7 @@ var OncoKB = (function(_, $) {
 
             // Always attach oncogenic description. It will be filled after
             // user hovering OncoKB icon. Also attach a loading gif.
-            str += '<br/><span class="oncogenic-description" style="float:left;"><span class="oncogenic-description-loading" style="display: none;"><img src="images/ajax-loader.gif" height="50px" width="50px"/></span><span class="oncogenic-description-content">';
+            str += '<br/><span class="oncogenic-description" style="float:left;"><span class="oncogenic-description-loading" style="display: none;"><img src="images/ajax-loader.gif" height="50px" width="50px" alt="loading" /></span><span class="oncogenic-description-content">';
             if (oncokbInfo.oncogenicDescription && oncokbInfo.oncogenicDescription !== 'null') {
                 str += oncokbInfo.oncogenicDescription;
             }
@@ -1536,6 +1536,7 @@ OncoKB.Instance.prototype = {
                     data: JSON.stringify(oncokbServiceData)
                 })
                 .done(function(d1) {
+		    d1 = JSON.parse(d1);
                     var result = OncoKB.utils.processEvidence(d1);
                     _.each(result, function(item, index) {
                         self.variants[index].evidence.gene = item.gene;
@@ -1594,6 +1595,7 @@ OncoKB.Instance.prototype = {
                     data: JSON.stringify(oncokbSummaryData)
                 })
                 .done(function(d) {
+		    d = JSON.parse(d);
                     var data = _.isArray(d) && _.isObject(d[0]) ? d[0] : null;
                     if(data && data.summary) {
                         if(data.id) {
@@ -1639,7 +1641,7 @@ OncoKB.Instance.prototype = {
                     if (_.isObject(gene) && Object.keys(gene).length > 0) {
                         _tip = OncoKB.str.getGeneSummaryBackground(gene);
                     } else if (hasGene) {
-                        _tip = '<span class="oncogenic-loading"><img src="images/ajax-loader.gif" height="50px" width="50px"/></span>'
+                        _tip = '<span class="oncogenic-loading"><img src="images/ajax-loader.gif" height="50px" width="50px" alt="loading" /></span>'
                     } else {
                         _tip = OncoKB.str.getNCBIGeneLink(self.variants[oncokbId].entrezGeneId);
                     }
@@ -1689,7 +1691,7 @@ OncoKB.Instance.prototype = {
 
                     $(this).empty();
                     if (self.variants.hasOwnProperty(oncokbId)) {
-                        var _tip = '', _oncogenicTip = '<span class="oncogenic-loading"><img src="images/ajax-loader.gif" height="50px" width="50px"/></span>', _hotspotTip = '';
+                        var _tip = '', _oncogenicTip = '<span class="oncogenic-loading"><img src="images/ajax-loader.gif" height="50px" width="50px" alt="loading" /></span>', _hotspotTip = '';
                         var variantNotExist = !self.variants[oncokbId].hasVariant;
                         var qtipMaxWidthClass = '';
 
