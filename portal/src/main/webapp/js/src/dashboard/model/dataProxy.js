@@ -56,7 +56,7 @@
             _gisticStudyIdArr = [], _mutDataStudyIdArr = [],
             _ajaxGeneticProfiles = {}, _ajaxCnaData = {}, _ajaxMutGenesData = {},
             _sequencedSampleIds = [], _cnaSampleIds = [], _allSampleIds = [];
-        
+
         var extractCaseLists = function(studyId, resp) {
             if (resp) {
                 var _lists = resp.split('\n');
@@ -81,9 +81,9 @@
         };
 
         var getData = function() {
-            getPatientClinicalAttributes(); 
+            getPatientClinicalAttributes();
         }
-        
+
         var getPatientClinicalAttributes = function() {
             $.when.apply($, _studyIdArr.map(function (_studyId) {
                 return $.ajax({
@@ -108,7 +108,7 @@
                 }
             });
         }
-        
+
         var getPatientClinicalData = function() {
             $.when.apply($, _studyIdArr.map(function (_studyId) {
                 return $.ajax({
@@ -126,10 +126,10 @@
                     }
                 }
                 _ajaxPatientData = _results;
+                getSampleClinicalAttributes();
             });
-            getSampleClinicalAttributes();
         }
-        
+
         var getSampleClinicalAttributes = function() {
             $.when.apply($, _studyIdArr.map(function (_studyId) {
                 return $.ajax({
@@ -154,7 +154,7 @@
                 }
             });
         }
-        
+
         var getSampleClinicalData = function() {
             $.when.apply($, _studyIdArr.map(function (_studyId) {
                 return $.ajax({
@@ -172,8 +172,8 @@
                     }
                 }
                 _ajaxSampleData = _results;
+                getCaseLists();
             });
-            getCaseLists();
         }
 
         var getCaseLists = function() {
@@ -191,12 +191,12 @@
                         extractCaseLists(_studyIdArr[i], arguments[i][0])
                     }
                 }
-                getGeneticProfiles();
-            });           
-        }
-        
+                getPatientSampleMapping();
+            });
+        };
+
         // patient id vs. sample id mapping (All ids under the studies, regardless of having data or not)
-        var getGeneticProfiles = function() {
+        var getPatientSampleMapping = function() {
             $.when.apply($, _studyIdArr.map(function (_studyId) {
                 return $.ajax({
                     method: "POST",
@@ -225,10 +225,32 @@
                         _ajaxPatient2SampleIdMappingObj = $.extend({}, processedMap_, _ajaxPatient2SampleIdMappingObj);
                     }
                 }
+                getGeneticProfiles();
+            });
+        };
+
+        var getGeneticProfiles = function(){
+            $.when.apply($, _studyIdArr.map(function (_studyId) {
+                return $.ajax({
+                    method: "POST",
+                    url: PORTAL_INST_URL + '/api/geneticprofiles',
+                    data: {study_id: _studyId}
+                });
+            })).done(function () {
+                var _results = [];
+                if (_studyIdArr.length === 1) {
+                    _results = arguments[0];
+                } else {
+                    for (var i = 0; i < arguments.length; i++) {
+                        _results = _results.concat(arguments[i][0]);
+                    }
+                }
+                _ajaxGeneticProfiles = _results;
                 getMutationCount();
             });
-        }
-        
+        };
+
+
         var getMutationCount = function() {
             var _mutCountStudyIdArr = _.filter(_studyIdArr, function (_studyId) {
                 return $.inArray(_studyId + '_mutations', _.pluck(_ajaxGeneticProfiles, 'id')) !== -1;
@@ -247,8 +269,8 @@
                         _ajaxMutationCountData = $.extend({}, arguments[i][0], _ajaxMutationCountData);
                     }
                 }
+                getMutData();
             });
-            getMutData();
         }
 
         // mutation data (for Mutated gene table)
@@ -275,7 +297,7 @@
                 getCnaFractionData();
             });
         }
-        
+
         var getCnaFractionData = function() {
             $.when.apply($, _studyIdArr.map(function (_studyId) {
                 return $.ajax({
@@ -291,13 +313,13 @@
                         _ajaxCnaFractionData = $.extend({}, arguments[i][0], _ajaxCnaFractionData);
                     }
                 }
-                if (_ajaxCnaFractionData.length > 0) {
+                if (_.keys(_ajaxCnaFractionData).length > 0) {
                     _hasMutationCNAScatterPlotData = true;
                 }
                 getCnaData();
             });
         }
-        
+
         var getCnaData = function() {
             _gisticStudyIdArr = _.filter(_studyIdArr, function (_studyId) {
                 return $.inArray(_studyId + '_gistic', _.pluck(_ajaxGeneticProfiles, 'id')) !== -1;
@@ -334,7 +356,7 @@
                 assembleResult();
             });
         }
-        
+
         var assembleResult = function() {
             var _patientData = [], _sampleData = {};
             var _patientIdStudyIdMap = {}, _sampleIdStudyIdMap = {};
@@ -650,9 +672,9 @@
 
             _callbackFunc(_result, _inputSampleList, _inputPatientList);
         }
-            
+
         getData();
-        
+
 
     }
 }(window.iViz, window.$));
