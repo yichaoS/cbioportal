@@ -154,7 +154,10 @@
                 window.style.vars.barchartWidth = 350;
                 window.style.vars.barchartHeight = 120;
             });
-        window.cbioURL = window.location.origin + window.location.pathname.substring(0, window.location.pathname.indexOf("/",2));
+        //this is for testing, once done this should be commented/deleted
+        window.cbioURL = window.location.origin + '/dashboard';
+        //commented for thesing
+       //window.cbioURL = window.location.origin + window.location.pathname.substring(0, window.location.pathname.indexOf("/",2));
         window.mutationProfileId = window.mutationProfileId;
         window.cnaProfileId = window.cnaProfileId;
         window.case_set_id = window.caseSetId;
