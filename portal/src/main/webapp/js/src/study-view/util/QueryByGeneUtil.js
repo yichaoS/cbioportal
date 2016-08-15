@@ -20,7 +20,7 @@ function QueryByGeneUtil() {
 
     // fields required for the study-view and their defaults to be able to query
     this.addStudyViewFields = function () {
-        var formId = "study-view-form";
+        var formId = "iviz-form";
         addFormField(formId, "gene_set_choice", "user-defined-list");
         addFormField(formId, "gene_list", QueryByGeneTextArea.getGenes());
         addFormField(formId, "cancer_study_list", window.cancerStudyId);
