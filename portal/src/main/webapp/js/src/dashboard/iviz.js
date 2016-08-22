@@ -2431,10 +2431,6 @@ var iViz = (function (_, $) {
         filtersToSkipShowing:['MUT_CNT_VS_CNA','sample_id','patient_id']
       }
     },
-    watch: {
-      'filters': function(val) {
-      }
-    },
     methods: {
       removeFilter: function(val) {
         if (this.attributes.view_type === 'bar_chart') {
@@ -2516,15 +2512,51 @@ var iViz = (function (_, $) {
     v.data.ndx = ndx;
     
     var labels = [];
-    var currentSampleSize = 0;
     var reactTableData = {};
-    var pieLabelTableInitialized = false;
-    var tableInitialized = false;
-    var labelMetaData = [];
-    var maxLabelValue = 0;
+    reactTableData.attributes = [
+      {
+        "attr_id": "name",
+        "display_name": v.data.display_name,
+        "datatype": "STRING",
+        "column_width": 213
+      },
+      {
+        "attr_id": "color",
+        "display_name": "Color",
+        "datatype": "STRING",
+        "show": false
+      },
+      {
+        "attr_id": "samples",
+        "display_name": "#",
+        "datatype": "NUMBER",
+        "column_width": 70
+      },
+      {
+        "attr_id": "sampleRate",
+        "display_name": "Freq",
+        "datatype": "PERCENTAGE",
+        "column_width": 90
+      },
+      {
+        "attr_id": "caseIds",
+        "display_name": "Cases",
+        "datatype": "STRING",
+        "show": false
+      },
+      {
+        "attr_id": "uniqueId",
+        "display_name": "uniqueId",
+        "datatype": "STRING",
+        "show": false
+      }
+    ];
+    var labelMetaData = null;
     var currentView = 'pie';
-    var updateQtip = true;
-    
+    var updateQtip = false;
+    var qtipRendered = false;
+    var isFiltered = false;
+
     /**
      * Only will be initialized at first time. Label name as key, contains color.
      * @type {{}}
@@ -2533,9 +2565,9 @@ var iViz = (function (_, $) {
 
     var dcGroup_ = '';
     var dcDimension_ = '';
-    
+
     initDCPieChart();
-    
+
     content.getChart = function() {
       return v.chart;
     };
@@ -2549,12 +2581,7 @@ var iViz = (function (_, $) {
       chartDivDom.qtip('destroy', true);
 
       if(currentView === 'table'){
-        if ( !tableInitialized ) {
-          initReactTable(v.opts.chartTableId, reactTableData);
-          tableInitialized = true;
-        }else{
           updateReactTable();
-        }
         animateTable("#"+v.opts.charDivId, 'table', function() {
           vm.$dispatch('update-grid');
           $("#"+v.opts.charDivId).css('z-index', '');
@@ -2580,25 +2607,21 @@ var iViz = (function (_, $) {
         position: {my:'left center',at:'center right', viewport: $(window)},
         content: '<div id="qtip-' + v.opts.charDivId + '-content-react">Loading....</div>',
         events: {
-          show:function(event){
-            if(updateQtip){
-              labelMetaData = [];
+          show:function(){
+            if(qtipRendered){
+              qtipRendered = false;
               updateQtip = false;
-              updatePieLabels();
+            }else{
+              if(updateQtip){
+                labelMetaData = null;
+                updateQtip = false;
+                updatePieLabels();
+              }
             }
           },
           render: function() {
-            updateCurrentLabels();
-            initReactData();
-            var data = $.extend(true, {}, reactTableData);
-            data.attributes[0].column_width = 140;
-            initReactTable('qtip-' + v.opts.charDivId + '-content-react',
-              data, {
-                tableWidth: 300,
-                pieLabelMouseEnterFunc: pieLabelMouseEnter,
-                pieLabelMouseLeaveFunc: pieLabelMouseLeave
-              });
-            pieLabelTableInitialized = true;
+            qtipRendered = true;
+            updatePieLabels();
           }
         }
       });
@@ -2610,12 +2633,13 @@ var iViz = (function (_, $) {
       } else if (['pdf', 'svg'].indexOf(fileType) !== -1) {
         initCanvasDownloadData();
       }
-    }
+    };
 
     content.filtered = function() {
-      updatePieLabels();
+      updateTables();
+      isFiltered = true;
       updateQtip = false;
-    }
+    };
 
     /**
      * This is the function to initialize dc pie chart instance.
@@ -2652,13 +2676,14 @@ var iViz = (function (_, $) {
           labelInitData[attr] = {
             attr: attr,
             color: color[index],
-            id: index
+            id: attr,
+            index:index
           };
         });
 
         dcDimension_ = cluster;
         dcGroup_ = cluster.group();
-        
+
         v.chart
           .width(width)
           .height(height)
@@ -2673,19 +2698,19 @@ var iViz = (function (_, $) {
           .ordering(function(d) {
             return d.key;
           });
-        v.chart.on("postRender",function(){
-          //TODO:commented this because this is taking much time to load chart, need to find different way
-          //initLabels();
-         // initReactData();
-        });
         v.chart.on("preRedraw",function(){
           removeMarker();
         });
         v.chart.on("postRedraw",function(){
-          if ( $("#"+v.opts.charDivId).length ) {
             //TODO:commented this because this is taking much time to redraw after applying filter, need to find different way
+          if(isFiltered){
+            updateQtip = false;
+            isFiltered = false;
+          }else{
             updateQtip = true;
-          //  updatePieLabels();
+            if(currentView == 'table'){
+              updatePieLabels();
+            }
           }
         });
       } else {
@@ -2700,7 +2725,7 @@ var iViz = (function (_, $) {
       var data = v.data.display_name + '\tCount';
 
       var meta = labels || [];
-      
+
       for (var i = 0; i < meta.length; i++) {
         data += '\r\n';
         data += meta[i].name + '\t';
@@ -2750,43 +2775,6 @@ var iViz = (function (_, $) {
       });
     }
 
-    function initLabels() {
-      labelMetaData = initLabelInfo();
-      labels = $.extend(true, [], labelMetaData);
-    }
-
-    function initLabelInfo() {
-      var _labelID = 0;
-      var _labels = [];
-      currentSampleSize = 0;
-
-      var labels = dcGroup_.top(Infinity);
-
-      _.each(labels, function(label, index) {
-        var _labelDatum = {};
-        var _labelValue = Number(label.value);
-
-        _labelDatum.id = labelInitData[label.key].id;
-        _labelDatum.name = label.key;
-        _labelDatum.color = labelInitData[label.key].color;
-        _labelDatum.parentID = v.opts.chartId;
-        _labelDatum.samples = _labelValue;
-
-        currentSampleSize += _labelValue;
-
-        if (maxLabelValue < _labelValue) {
-          maxLabelValue = _labelValue;
-        }
-        _labels.push(_labelDatum);
-      });
-
-      _.each(_labels, function(label) {
-        label.sampleRate = (currentSampleSize <= 0 ? 0 : (Number(label.samples) * 100 / currentSampleSize).toFixed(1).toString()) + '%';
-      });
-
-      return _labels;
-    }
-
     function updatePieLabels() {
       updateCurrentLabels();
       initReactData();
@@ -2794,10 +2782,10 @@ var iViz = (function (_, $) {
     }
 
     function updateTables() {
-      if(pieLabelTableInitialized && currentView === 'pie') {
+      if(currentView === 'pie') {
         updateQtipReactTable();
       }
-      if(tableInitialized && currentView === 'table') {
+      if(currentView === 'table') {
         updateReactTable();
       }
     }
@@ -2819,95 +2807,41 @@ var iViz = (function (_, $) {
 
 
     function updateCurrentLabels() {
-      labels = filterLabels();
-    }
-
-    function findLabel(labelName) {
-      if(labelMetaData.length===0){
-        initLabels();
-      }
-      for (var i = 0; i < labelMetaData.length; i++) {
-        if (labelMetaData[i].name === labelName) {
-          return labelMetaData[i];
-        }
-      }
-      return '';
-    }
-
-    function filterLabels() {
-      var _labels = [];
-      currentSampleSize = 0;
-
-      _.each(dcGroup_.top(Infinity), function(category) {
-        var _label = findLabel(category.key);
-        if (_label) {
-          _label.samples = category.value;
-          currentSampleSize += Number(category.value);
-          _labels.push(_label);
-        }
-
-        if (maxLabelValue < category.value) {
-          maxLabelValue = category.value;
+      var _labels = {};
+      var _currentSampleSize = 0;
+      _.each(dcGroup_.top(Infinity), function(label) {
+        var _labelDatum = {};
+        var _labelValue = Number(label.value);
+        if(_labelValue > 0){
+          _labelDatum.id = labelInitData[label.key].id;
+          _labelDatum.index = labelInitData[label.key].index;
+          _labelDatum.name = label.key;
+          _labelDatum.color = labelInitData[label.key].color;
+          _labelDatum.samples = _labelValue;
+          _currentSampleSize += _labelValue;
+          _labels[_labelDatum.id ] = _labelDatum;
         }
       });
-      return _labels;
+
+      _.each(_labels, function(label) {
+        label.sampleRate = (_currentSampleSize <= 0 ? 0 : (Number(label.samples) * 100 / _currentSampleSize).toFixed(1).toString()) + '%';
+      });
+      labels = _labels;
     }
 
     function initReactData() {
-      var result = {
-        data: [],
-        attributes: [
-          {
-            "attr_id": "name",
-            "display_name": v.data.display_name,
-            "datatype": "STRING",
-            "column_width": 213
-          },
-          {
-            "attr_id": "color",
-            "display_name": "Color",
-            "datatype": "STRING",
-            "show": false
-          },
-          {
-            "attr_id": "samples",
-            "display_name": "#",
-            "datatype": "NUMBER",
-            "column_width": 70
-          },
-          {
-            "attr_id": "sampleRate",
-            "display_name": "Freq",
-            "datatype": "PERCENTAGE",
-            "column_width": 90
-          },
-          {
-            "attr_id": "caseIds",
-            "display_name": "Cases",
-            "datatype": "STRING",
-            "show": false
-          },
-          {
-            "attr_id": "uniqueId",
-            "display_name": "uniqueId",
-            "datatype": "STRING",
-            "show": false
-          }
-        ]
-      };
-
-      _.each(labels, function(item, index) {
+      var _data = [];
+      _.each(labels, function(item) {
         for (var key in item) {
           var datum = {
             'attr_id': key,
             'uniqueId': item.id,
             'attr_val': item[key]
           };
-          result.data.push(datum);
+          _data.push(datum);
         }
       });
-
-      reactTableData = result;
+      reactTableData.data = _data;
     }
 
     function removeMarker() {
@@ -2915,21 +2849,17 @@ var iViz = (function (_, $) {
     }
 
     function drawMarker(_childID,_fatherID) {
-      var _pointsInfo =
-        $('#' + v.opts.chartId + ' svg>g>g:nth-child(' + _childID+')')
-          .find('path')
+      var _path = $('#' + v.opts.chartId + ' svg>g>g:nth-child(' + _childID+')')
+        .find('path');
+      var _pointsInfo = _path
           .attr('d')
           .split(/[\s,MLHVCSQTAZ]/);
 
-      var _pointsInfo1 =
-        $('#' + v.opts.chartId + ' svg>g>g:nth-child(' + _childID+')')
-          .find('path')
+      var _pointsInfo1 =_path
           .attr('d')
           .split(/[A]/);
 
-      var _fill =
-        $('#' + v.opts.chartId + ' svg>g>g:nth-child(' + _childID+')')
-          .find('path')
+      var _fill =_path
           .attr('fill');
 
       var _x1 = Number(_pointsInfo[1]),
@@ -2983,7 +2913,7 @@ var iViz = (function (_, $) {
     }
 
     function pieLabelMouseEnter(data) {
-      var childID = Number(data.id) + 1,
+      var childID = Number(data.index) + 1,
         fatherID = v.opts.chartId;
 
       $('#' + v.opts.chartId + ' svg>g>g:nth-child(' + childID+')').css({
@@ -2995,25 +2925,18 @@ var iViz = (function (_, $) {
     }
 
     function pieLabelMouseLeave(data) {
-      var childID = Number(data.id) + 1,
-        fatherID = v.opts.chartId,
-        arcID = fatherID+"-"+(Number(childID)-1);
-
-      $("#" + v.opts.chartId + " svg g #arc-" + arcID).remove();
+      var childID = Number(data.index) + 1;
 
       $('#' + v.opts.chartId + ' svg>g>g:nth-child(' + childID+')').css({
         'fill-opacity': '1',
         'stroke-width': '1px'
       });
+
+      removeMarker();
     }
 
     function initReactTable(targetId, inputData, opts) {
-      var _filters = v.chart.filters();
-      var selectedRows = _.map(_.filter(labels, function(item) {
-        return _.contains(_filters, item.name);
-      }), function(item) {
-        return item.id.toString();
-      });
+      var selectedRows = v.chart.filters();
 
       var opts_ = $.extend({
         input: inputData,
@@ -3045,21 +2968,10 @@ var iViz = (function (_, $) {
       ReactDOM.render(testElement, document.getElementById(targetId));
     }
 
-    function pieLabelClick(selectedData, selected, allSelectedData) {
-      var childaLabelID = Number(selectedData.id),
-        childID = childaLabelID + 1;
-
-      var arcID =  v.opts.chartId + "-" + (Number(childID) - 1);
-
+    function pieLabelClick(selectedData) {
       v.chart.onClick({
-        key: labelMetaData[childaLabelID].name,
-        value: labelMetaData[childaLabelID].value
-      });
-      $("#" + v.opts.chartId + " svg g #" + arcID).remove();
-
-      $('#' + v.opts.chartId + ' svg>g>g:nth-child(' + childID + ')').css({
-        'fill-opacity': '1',
-        'stroke-width': '1px'
+        key: labels[selectedData.id].name,
+        value: labels[selectedData.id].value
       });
     }
   };
@@ -3207,6 +3119,8 @@ var iViz = (function (_, $) {
       },
       'closeChart':function(){
         $('#' +this.charDivId).qtip('destroy');
+        dc.deregisterChart(this.chartInst, this.attributes.groupid);
+        this.chartInst.dimension().dispose();
         this.$dispatch('close');
       }
     },
@@ -3815,11 +3729,13 @@ var iViz = (function (_, $) {
       }
     },events: {
       'closeChart':function(){
+        dc.deregisterChart(this.chartInst, this.attributes.groupid);
+        this.chartInst.dimension().dispose();
         this.$dispatch('close');
       },
       'changeLogScale':function(logScaleChecked){
         $('#'+this.chartId).find('svg').remove();
-        dc.deregisterChart(this.chartInst, this.groupid);
+        dc.deregisterChart(this.chartInst, this.attributes.groupid);
         this.initChart(logScaleChecked);
       }
     },
@@ -4171,6 +4087,7 @@ var iViz = (function (_, $) {
           this.filters = [];
           this.updateFilters();
         }
+        this.invisibleDimension.dispose();
         this.$dispatch('close');
       }
     },
@@ -4429,6 +4346,7 @@ var iViz = (function (_, $) {
         this.showLoad = false;
       },
       'closeChart':function(){
+        this.invisibleDimension.dispose();
         this.$dispatch('close');
       }
     },
@@ -5549,6 +5467,7 @@ var LogRankTest = (function() {
           this.filters = [];
           this.updateFilters();
         }
+        this.invisibleDimension.dispose();
         this.$dispatch('close',true);
       }
     },

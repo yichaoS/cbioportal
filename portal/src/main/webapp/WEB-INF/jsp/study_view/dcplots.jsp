@@ -38,15 +38,10 @@
 
 <script src="js/src/dashboard/iviz-vendor.js"></script>
 <script src="js/src/dashboard/iviz.js"></script>
-
-<script src="js/lib/vc-session.js"></script>
+<script src="js/src/dashboard/cbio-vendor.js"></script>
+<script src="js/src/dashboard/vc-session.js"></script>
 <script src="js/src/dashboard/model/dataProxy.js"></script>
-
-<script src="js/src/study-view/component/QueryByGeneTextArea.js"></script>
-<script src="js/src/study-view/component/Notification.js"></script>
-
-<script src="js/src/study-view/util/QueryByGeneUtil.js"></script>
-<script src="js/src/study-view/util/GeneValidator.js"></script>
+<script src="js/api/cbioportal-client.js"></script>
 
 <script src="https://rawgit.com/notifyjs/notifyjs/master/dist/notify.js"></script>
 <script src="js/lib/jquery.tipTip.minified.js"></script>
@@ -56,7 +51,6 @@
 <link rel="stylesheet" href="css/vc-session.css"/>
 <link rel="stylesheet" href="css/dashboard/iviz-vendor.css"/>
 <link rel="stylesheet" href="css/dashboard/iviz.css"/>
-
 
 <style>
     /* This style needs to be moved to some scss/css files */
@@ -152,12 +146,17 @@
                 window.style.vars.barchartWidth = 350;
                 window.style.vars.barchartHeight = 120;
             });
-        window.cbioURL = window.location.origin + '/dashboard';
+        window.cbioURL = window.location.origin + '/dashboard/';
         window.mutationProfileId = window.mutationProfileId;
         window.cnaProfileId = window.cnaProfileId;
         window.case_set_id = window.caseSetId;
+        var studyCasesMap = {};
+        studyCasesMap[window.cancerStudyId]={};
+        window.iviz = {};
+        window.iviz.datamanager = new iViz.data.init(window.cbioURL, studyCasesMap, iViz.init);
+        window.iviz.datamanager.initialSetup();
 
-        iViz.data.init(window.cbioURL, [window.cancerStudyId], iViz.init);
+        //iViz.data.init(window.cbioURL, [window.cancerStudyId], iViz.init);
 
         QueryByGeneTextArea.init('#query-by-gene-textarea', function (genes) {
             iViz.vue.manage.getInstance().$broadcast('gene-list-updated', genes);
