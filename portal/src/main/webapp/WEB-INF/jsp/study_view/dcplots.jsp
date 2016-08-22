@@ -30,13 +30,13 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
 --%>
 
-<%@ page import="org.mskcc.cbio.portal.servlet.MutationsJSON" %>
 <%@ page import="org.mskcc.cbio.portal.servlet.CnaJSON" %>
+<%@ page import="org.mskcc.cbio.portal.servlet.MutationsJSON" %>
 <%@ page import="org.mskcc.cbio.portal.servlet.PatientView" %>
 <%@ page import="org.mskcc.cbio.portal.util.GlobalProperties" %>
 
 
-<script src="js/src/dashboard/iviz-vendor.js"></script>
+<%--<script src="js/src/dashboard/iviz-vendor.js"></script>--%>
 <script src="js/src/dashboard/iviz.js"></script>
 <script src="js/src/dashboard/cbio-vendor.js"></script>
 <script src="js/src/dashboard/vc-session.js"></script>
@@ -132,7 +132,7 @@
 </div>
 
 <script>
-    $(document).ready(function () {
+    function initdcplots() {
         //Include style variables
         window.style = {
             vars: {}
@@ -148,7 +148,10 @@
                 window.style.vars.barchartWidth = 350;
                 window.style.vars.barchartHeight = 120;
             });
+        //this is for testing, once done this should be commented/deleted
         window.cbioURL = window.location.origin + '/dashboard/';
+        //commented for thesing
+        //window.cbioURL = window.location.origin + window.location.pathname.substring(0, window.location.pathname.indexOf("/",2));
         window.mutationProfileId = window.mutationProfileId;
         window.cnaProfileId = window.cnaProfileId;
         window.case_set_id = window.caseSetId;
@@ -163,6 +166,5 @@
         QueryByGeneTextArea.init('#query-by-gene-textarea', function (genes) {
             iViz.vue.manage.getInstance().$broadcast('gene-list-updated', genes);
         });
-
-    });
+    }
 </script>

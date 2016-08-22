@@ -194,6 +194,13 @@ if (cancerStudyViewError!=null) {
         }
 </style>
 
+<script src="js/src/study-view/data/StudyViewProxy.js"></script>
+<script src="js/src/study-view/controller/StudyViewParams.js"></script>
+<script src="js/src/study-view/controller/StudyViewMutationsTabController.js"></script>
+<script src="js/src/study-view/view/StudyViewInitMutationsTab.js"></script>
+<script src="js/src/study-view/controller/StudyViewCNATabController.js"></script>
+<script src="js/src/study-view/view/StudyViewInitCNATab.js"></script>
+
 <script type="text/javascript">
 var cancerStudyId = '<%=cancerStudy.getCancerStudyStableId()%>';
 var cancerStudyName = '<%=StringEscapeUtils.escapeJavaScript(cancerStudy.getName())%>';
@@ -213,39 +220,38 @@ $("#study-tabs").tabs({disabled: true});
 
 $('#study-tab-summary-a').click(function () {
     if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
-        var _data = StudyViewProxy.getAllData();
-        if (!(_data.attr.length === 1 && _data.attr[0].attr_id === 'CASE_ID')) {
-            StudyViewSummaryTabController.init(_data);
-        } else {
-            $("#summary-loading-wait").css('display', 'none');
-            $("#summary").append("<div style='width:100%'>" +
-                "There isn't any information for this study.</div>");
-        }
+//        var _data = StudyViewProxy.getAllData();
+//        if (!(_data.attr.length === 1 && _data.attr[0].attr_id === 'CASE_ID')) {
+            initdcplots();
+//        } else {
+//            $("#summary-loading-wait").css('display', 'none');
+//            $("#summary").append("<div style='width:100%'>" +
+//                "There isn't any information for this study.</div>");
+//        }
         $('#study-tab-summary-a').addClass("tab-clicked");
     }
     window.location.hash = '#summary';
 });
 
 $('#study-tab-clinical-a').click(function(){
-    if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
-        //First time: adjust the width of data table;
-        $("#clinical-data-table-loading-wait").css('display', 'inline-block');
-        $("#clinical-data-table-div").css('display','none');
-        setTimeout(function () {
-            $("#clinical-data-table-div").css('display','inline-block');
-            StudyViewClinicalTabController.init();
-            $("#clinical-data-table-loading-wait").css('display', 'none');
-            $('#study-tab-clinical-a').addClass("tab-clicked");
-        }, 200);
-    }
-    window.location.hash = '#clinical';
+//    if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
+//        //First time: adjust the width of data table;
+//        $("#clinical-data-table-loading-wait").css('display', 'inline-block');
+//        $("#clinical-data-table-div").css('display','none');
+//        setTimeout(function () {
+//            $("#clinical-data-table-div").css('display','inline-block');
+//            StudyViewClinicalTabController.init();
+//            $("#clinical-data-table-loading-wait").css('display', 'none');
+//            $('#study-tab-clinical-a').addClass("tab-clicked");
+//        }, 200);
+//    }
+//    window.location.hash = '#clinical';
 });
 
 $('#study-tab-mutations-a').click(function(){
     if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
         StudyViewMutationsTabController.init();
         $(this).addClass("tab-clicked");
-        StudyViewMutationsTabController.getDataTable().fnAdjustColumnSizing();
     }
     window.location.hash = '#mutations';
 });
@@ -254,10 +260,60 @@ $('#study-tab-cna-a').click(function(){
     if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
         StudyViewCNATabController.init();
         $(this).addClass("tab-clicked");
-        StudyViewCNATabController.getDataTable().fnAdjustColumnSizing();
     }
     window.location.hash = '#cna';
 });
+
+StudyViewParams.params = {
+    studyId: cancerStudyId,
+    caseIds: caseIds,
+    cnaProfileId: cnaProfileId,
+    mutationProfileId: mutationProfileId,
+    caseSetId: caseSetId,
+    hasMutSig: hasMutSig
+};
+
+StudyViewProxy.ivizLoad();
+
+var urlHash = window.location.hash;
+for(var i=0, tabsL = $('#study-tabs').find('li').length; i < tabsL; i++) {
+    $('#study-tabs').tabs('enable', i);
+}
+
+if(!_.isUndefined(urlHash)) {
+    switch (urlHash) {
+        case '#cna':
+            if($('#study-tab-cna-a').length == 0) {
+                $('#study-tab-summary-a').click();
+            }else {
+                $('#study-tab-cna-a').click();
+            }
+            break;
+        case '#mutations':
+            if($('#study-tab-mutations-a').length == 0) {
+                $('#study-tab-summary-a').click();
+            }else {
+                $('#study-tab-mutations-a').click();
+            }
+            break;
+        case '#clinical':
+            if($('#study-tab-clinical-a').length == 0) {
+                $('#study-tab-summary-a').click();
+            }else {
+                $('#study-tab-clinical-a').click();
+            }
+            break;
+        case '#summary':
+            $('#study-tab-summary-a').click();
+            break;
+        default:
+            $('#study-tab-summary-a').click();
+            break;
+
+    }
+}else {
+    $('#study-tab-summary-a').click();
+}
 </script>
 
 </body>
