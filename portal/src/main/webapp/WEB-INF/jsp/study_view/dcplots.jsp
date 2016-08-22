@@ -63,11 +63,11 @@
 <div class="container-fluid" id="complete-screen">
     <div id="main-header">
         <div id="iviz-header-left">
-            <%--<div style="float: left; margin-right: 10px;">--%>
-            <%--<session-component :show-save-button="showSaveButton" :show-manage-button="showManageButton"--%>
-            <%--:selected-patients-num="selectedPatientsNum" :selected-samples-num="selectedSamplesNum"--%>
-            <%--:userid="userid" :stats="stats" :update-stats.sync="updateStats"></session-component>--%>
-            <%--</div>--%>
+            <div style="float: left; margin-right: 10px;">
+            <session-component :show-save-button="showSaveButton" :show-manage-button="showManageButton"
+            :selected-patients-num="selectedPatientsNum" :selected-samples-num="selectedSamplesNum"
+            :userid="userid" :stats="stats" :update-stats.sync="updateStats"></session-component>
+            </div>
             <span class="iviz-header-left-case-name" style="display: block;">Samples selected: </span>
             <span id="iviz-header-left-sample-select" @click="openCases()"
                   class="iviz-header-left-case-number iviz-header-button"
@@ -137,7 +137,9 @@
         window.style = {
             vars: {}
         };
-        iViz.vue.manage.init();
+        var _vm = iViz.vue.manage.getInstance();
+        _vm.showSaveButton=false;
+        _vm.showManageButton=false;
         $.get('js/src/dashboard/resources/vars.json')
             .then(function (data) {
                 window.style.vars = data;
