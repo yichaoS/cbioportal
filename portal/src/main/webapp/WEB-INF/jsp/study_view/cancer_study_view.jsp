@@ -329,7 +329,7 @@ $(document).ready(function () {
             window.style.vars.barchartHeight = 120;
         });
     //this is for testing, once done this should be commented/deleted
-    window.cbioURL = window.location.origin + '/cbioportal';
+    window.cbioURL = window.location.origin + '/dashboard';
     //commented for thesing
     //window.cbioURL = window.location.origin + window.location.pathname.substring(0, window.location.pathname.indexOf("/",2));
     window.mutationProfileId = window.mutationProfileId;
