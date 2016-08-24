@@ -373,6 +373,7 @@
           _result.groups.group_mapping.sample.patient = _samplesToPatientMap;
           _result.groups.group_mapping.patient.sample = _patientToSampleMap;
 
+            self.initialSetupResult = _result;
           self.callbackFunc(_result);
         });
       });
@@ -382,9 +383,12 @@
       var def = new $.Deferred();
       var fetch_promises = [];
       var clinical_data = {};
-      attr_ids = attr_ids.slice();
+      if(_.isArray(attr_ids))
+        attr_ids = attr_ids.slice();
       $.when(self.getPatientClinicalAttributes(), self.getStudyCasesMap()).then(function (attributes, studyCasesMap) {
         var studyAttributesMap = {};
+        if(!_.isArray(attr_ids))
+          attr_ids = Object.keys(attributes);
         _.each(attr_ids, function (_attrId) {
           var attrDetails = attributes[_attrId];
           _.each(attrDetails.study_ids, function (studyId) {
@@ -427,9 +431,13 @@
       var def = new $.Deferred();
       var fetch_promises = [];
       var clinical_data = {};
-      attr_ids = attr_ids.slice();
+      if(_.isArray(attr_ids))
+        attr_ids = attr_ids.slice();
       $.when(self.getSampleClinicalAttributes(), self.getStudyCasesMap()).then(function (attributes, studyCasesMap) {
         var studyAttributesMap = {};
+        if(!_.isArray(attr_ids))
+            attr_ids = Object.keys(attributes);
+          
         _.each(attr_ids, function (_attrId) {
           var attrDetails = attributes[_attrId];
           _.each(attrDetails.study_ids, function (studyId) {
@@ -469,6 +477,7 @@
     };
 
     return {
+        'initialSetupResult': '',
       'cancerStudyIds': [],
       'portalUrl': _portalUrl,
       'callbackFunc' : _callbackFunc,

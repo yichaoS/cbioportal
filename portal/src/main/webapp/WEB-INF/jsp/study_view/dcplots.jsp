@@ -36,21 +36,7 @@
 <%@ page import="org.mskcc.cbio.portal.util.GlobalProperties" %>
 
 
-<%--<script src="js/src/dashboard/iviz-vendor.js"></script>--%>
-<script src="js/src/dashboard/iviz.js"></script>
-<script src="js/src/dashboard/cbio-vendor.js"></script>
-<script src="js/src/dashboard/vc-session.js"></script>
-<script src="js/src/dashboard/model/dataProxy.js"></script>
-<script src="js/api/cbioportal-client.js"></script>
 
-<script src="https://rawgit.com/notifyjs/notifyjs/master/dist/notify.js"></script>
-<script src="js/lib/jquery.tipTip.minified.js"></script>
-<script src="js/lib/mailme.js"></script>
-<script src="js/lib/jquery-ui.min.js"></script>
-
-<link rel="stylesheet" href="css/vc-session.css"/>
-<link rel="stylesheet" href="css/dashboard/iviz-vendor.css"/>
-<link rel="stylesheet" href="css/dashboard/iviz.css"/>
 
 <style>
     /* This style needs to be moved to some scss/css files */
@@ -132,36 +118,8 @@
 </div>
 
 <script>
-    function initdcplots() {
-        //Include style variables
-        window.style = {
-            vars: {}
-        };
-        var _vm = iViz.vue.manage.getInstance();
-        _vm.showSaveButton=false;
-        _vm.showManageButton=false;
-        $.get('js/src/dashboard/resources/vars.json')
-            .then(function (data) {
-                window.style.vars = data;
-                window.style.vars.survivalWidth = 320;
-                window.style.vars.survivalHeight = 320;
-                window.style.vars.barchartWidth = 350;
-                window.style.vars.barchartHeight = 120;
-            });
-        //this is for testing, once done this should be commented/deleted
-        window.cbioURL = window.location.origin + '/dashboard/';
-        //commented for thesing
-        //window.cbioURL = window.location.origin + window.location.pathname.substring(0, window.location.pathname.indexOf("/",2));
-        window.mutationProfileId = window.mutationProfileId;
-        window.cnaProfileId = window.cnaProfileId;
-        window.case_set_id = window.caseSetId;
-        var studyCasesMap = {};
-        studyCasesMap[window.cancerStudyId]={};
-        window.iviz = {};
-        window.iviz.datamanager = new iViz.data.init(window.cbioURL, studyCasesMap, iViz.init);
-        window.iviz.datamanager.initialSetup();
-
-        //iViz.data.init(window.cbioURL, [window.cancerStudyId], iViz.init);
+    function initdcplots(data) {
+        iViz.init(data);
 
         QueryByGeneTextArea.init('#query-by-gene-textarea', function (genes) {
             iViz.vue.manage.getInstance().$broadcast('gene-list-updated', genes);
