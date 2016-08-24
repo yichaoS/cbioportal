@@ -34,14 +34,17 @@
 
 
 var StudyViewCNATabController = (function() {
-    var init = function (){
-        StudyViewProxy.getGisticData().then(StudyViewInitCNATab.init);
+    var init = function (callback){
+        StudyViewProxy.getGisticData().then(function(data) {
+            StudyViewInitCNATab.init(data);
+            if(_.isFunction(callback)) {
+                callback();
+            }
+        });
     };
     
     return {
-        init: function() {
-            init();
-        },
+        init: init,
         getDataTable: function () {
             return StudyViewInitCNATab.getDataTable();
         }

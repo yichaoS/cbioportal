@@ -201,7 +201,6 @@ if (cancerStudyViewError!=null) {
 <script src="js/src/dashboard/model/dataProxy.js"></script>
 <script src="js/api/cbioportal-client.js"></script>
 
-<script src="https://rawgit.com/notifyjs/notifyjs/master/dist/notify.js"></script>
 <script src="js/lib/jquery.tipTip.minified.js"></script>
 <script src="js/lib/mailme.js"></script>
 <script src="js/lib/jquery-ui.min.js"></script>
@@ -264,14 +263,19 @@ $('#study-tab-clinical-a').click(function(){
 
         if(_.isUndefined(window.iviz.datamanager)) {
             window.iviz.datamanager = new iViz.data.init(window.cbioURL, window.studyCasesMap, function(a,b,c){
-                StudyViewClinicalTabController.init(window.iviz.datamanager.initialSetupResult);
+                StudyViewClinicalTabController.init(function() {
+                    $("#clinical-data-table-div").css('display','inline-block');
+                    $("#clinical-data-table-loading-wait").css('display', 'none');
+                    $('#study-tab-clinical-a').addClass("tab-clicked");
+                });
+            });
+            window.iviz.datamanager.initialSetup();
+        }else {
+            StudyViewClinicalTabController.init(function() {
                 $("#clinical-data-table-div").css('display','inline-block');
                 $("#clinical-data-table-loading-wait").css('display', 'none');
                 $('#study-tab-clinical-a').addClass("tab-clicked");
             });
-            window.iviz.datamanager.initialSetup();
-        }else {
-            console.log(iviz.datamanager);
         }
     }
     window.location.hash = '#clinical';
@@ -279,16 +283,20 @@ $('#study-tab-clinical-a').click(function(){
 
 $('#study-tab-mutations-a').click(function(){
     if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
-        StudyViewMutationsTabController.init();
-        $(this).addClass("tab-clicked");
+        StudyViewMutationsTabController.init(function() {
+            $(this).addClass("tab-clicked");
+            StudyViewMutationsTabController.getDataTable().fnAdjustColumnSizing();
+        });
     }
     window.location.hash = '#mutations';
 });
 
 $('#study-tab-cna-a').click(function(){
     if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
-        StudyViewCNATabController.init();
-        $(this).addClass("tab-clicked");
+        StudyViewCNATabController.init(function() {
+            $(this).addClass("tab-clicked");
+            StudyViewCNATabController.getDataTable().fnAdjustColumnSizing();
+        });
     }
     window.location.hash = '#cna';
 });
@@ -321,7 +329,7 @@ $(document).ready(function () {
             window.style.vars.barchartHeight = 120;
         });
     //this is for testing, once done this should be commented/deleted
-    window.cbioURL = window.location.origin + '/cbioportal/';
+    window.cbioURL = window.location.origin + '/cbioportal';
     //commented for thesing
     //window.cbioURL = window.location.origin + window.location.pathname.substring(0, window.location.pathname.indexOf("/",2));
     window.mutationProfileId = window.mutationProfileId;

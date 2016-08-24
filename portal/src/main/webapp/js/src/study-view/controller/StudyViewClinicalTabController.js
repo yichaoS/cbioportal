@@ -40,7 +40,7 @@
 
 
 var StudyViewClinicalTabController = (function () {
-    function init() {
+    function init(callback) {
         $.when(
             window.iviz.datamanager.getPatientClinicalAttributes(),
             window.iviz.datamanager.getPatientClinicalData(), 
@@ -117,6 +117,10 @@ var StudyViewClinicalTabController = (function () {
                 });
 
                 initTable(_.values(attr), data);
+                
+                if(_.isFunction(callback)) {
+                    callback();
+                }
             })
     }
 
