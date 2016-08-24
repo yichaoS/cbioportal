@@ -142,11 +142,10 @@ var StudyViewProxy = (function() {
             $.ajax({type: "POST", url: "webservice.do", data: ajaxParameters.webserviceData}),
             $.ajax({type: "POST", url: "mutations.json", data: ajaxParameters.mutationsData}),
             $.ajax({type: "POST", url: "cna.json", data: ajaxParameters.cnaFraction}),
-            $.ajax({type: "POST", url: "Gistic.json", data: ajaxParameters.gisticData}),
             $.ajax({type: "POST", url: "webservice.do", data: ajaxParameters.caseLists})
             //$.ajax({type: "POST", url: "mutations.json", data: ajaxParameters.mutatedGenesData})
         )
-            .done(function(a1, a2, a3, a4, a5){
+            .done(function(a1, a2, a3, a5){
                 var _dataAttrMapArr = {}, //Map attribute value with attribute name for each datum
                     _data = a1[0].data,
                     _dataAttrOfa1 = {},
@@ -337,8 +336,6 @@ var StudyViewProxy = (function() {
                     caseAttr.keys =  StudyViewParams.params.sampleIds;
                     obtainDataObject.attr.push(caseAttr);
                 }
-                //obtainDataObject['mutatedGenes'] = a4[0];
-                obtainDataObject.gistic = a4[0];
 
                 if (!patientidExist) {
                     var caseAttr = new CaseAttr();
@@ -652,6 +649,33 @@ var StudyViewProxy = (function() {
         return deferred.promise();
     }
 
+    function getGisticData(){
+        var deferred = $.Deferred();
+
+        if(obtainDataObject.hasOwnProperty('gistic') && obtainDataObject.gistic){
+            deferred.resolve(obtainDataObject.gistic);
+        }else{
+            if(hasMutation){
+                $.ajax({type: "POST", url: "Gistic.json", data: ajaxParameters.gisticData})
+                    .then(function(data){
+                        obtainDataObject.gistic = data;
+                        deferred.resolve(obtainDataObject.gistic);
+                    }, function(status){
+                        obtainDataObject.gistic = '';
+                        deferred.reject(null);
+                    });
+            }else{
+                deferred.reject(null);
+            }
+        }
+        return deferred.promise();
+    }
+
+    function ivizLoad() {
+        parObject = jQuery.extend(true, {}, StudyViewParams.params);
+        initAjaxParameters();
+    }
+    
     function getArrDataBySampleIds(sampleIds){
         var  _arr = [];
         if(sampleIds instanceof Array) {
@@ -673,14 +697,14 @@ var StudyViewProxy = (function() {
                 getDataFunc(callbackFunc);
             });
         },
-
+        ivizLoad: ivizLoad,
         getArrData: function(){ return obtainDataObject.arr;},
         getArrDataBySampleIds: getArrDataBySampleIds,
         getAttrData: function(){ return obtainDataObject.attr;},
         getMutatedGenesData: getMutatedGenesData,
         getMutatedGeneDataBasedOnSampleIds: getMutatedGeneDataBasedOnSampleIds,
         getCNABasedOnSampleIds: getCNABasedOnSampleIds,
-        getGisticData: function(){return obtainDataObject.gistic;},
+        getGisticData: getGisticData,
         getCNAData: getCNAData,
         getSampleidToPatientidMap: function(){return obtainDataObject.sampleidToPatientidMap;},
         getPatientIdsBySampleIds: getPatientIdsBySampleIds,

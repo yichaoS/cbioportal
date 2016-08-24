@@ -40,38 +40,94 @@
 
 
 var StudyViewClinicalTabController = (function () {
-    function init() {
-        var arr = StudyViewProxy.getArrData(), attr = $.extend(true, [], StudyViewProxy.getAttrData()), testElement, data = [];
+    function init(callback) {
+        $.when(
+            window.iviz.datamanager.getPatientClinicalAttributes(),
+            window.iviz.datamanager.getPatientClinicalData(), 
+            window.iviz.datamanager.getSampleClinicalAttributes(),
+            window.iviz.datamanager.getSampleClinicalData())
+            .then(function(pa, pd, sa, sd) {
+                var attr = _.extend(pa, sa);
+                var arr = _.extend(pd, sd);
+                var data = [];
+                var mapping = iviz.datamanager.initialSetupResult.groups.group_mapping.patient.sample;
 
-        _.each(arr, function (datum) {
-            for (var key in datum) {
-                if(key !== 'CASE_ID') {
-                    data.push({
-                        attr_id: key,
-                        attr_val: datum[key],
-                        CASE_ID: datum.CASE_ID
+                attr['CASE_ID'] = {
+                    attr_id: 'CASE_ID',
+                    datatype: 'STRING',
+                    description: 'Sample ID',
+                    display_name: 'Sample ID'
+                };
+
+                attr['PATIENT_ID'] = {
+                    attr_id: 'PATIENT_ID',
+                    datatype: 'STRING',
+                    description: 'Patient ID',
+                    display_name: 'Patient ID'
+                };
+                
+                _.each(arr, function (datum) {
+                    _.each(datum, function(item) {
+                        if(item.attr_id !== 'CASE_ID') {
+                            if(item.hasOwnProperty('patient_id')) {
+                                if(_.isArray(mapping[item.patient_id])) {
+                                    _.each(mapping[item.patient_id], function(sample_id) {
+                                        data.push({
+                                            attr_id: item.attr_id,
+                                            attr_val: item.attr_val,
+                                            CASE_ID: sample_id
+                                        });
+                                    })
+                                }
+                            }else {
+                                data.push({
+                                    attr_id: item.attr_id,
+                                    attr_val: item.attr_val,
+                                    CASE_ID: item.sample_id
+                                });
+                            }
+                        }
                     });
-                }
-            }
-        });
-        
-        _.each(attr, function(item) {
-            if (item.attr_id === 'CASE_ID' || item.attr_id === 'PATIENT_ID') {
-                item.fixed = true;
-                if(StudyViewParams.params.studyId === 'mskimpact') {
-                    if (item.attr_id === 'CASE_ID') {
-                        item.column_width = 200;
+                });
+                
+                _.each(mapping, function(sampleMap, patientId) {
+                    if(patientId !== 'Composite.Element.Ref'){
+                        _.each(sampleMap, function(sampleId) {
+                            data.push({
+                                attr_id: 'PATIENT_ID',
+                                attr_val: patientId,
+                                CASE_ID: sampleId
+                            });
+                        });
                     }
-                    if (item.attr_id === 'PATIENT_ID') {
-                        item.column_width = 160;
+                });
+
+                _.each(attr, function(item) {
+                    if (item.attr_id === 'CASE_ID' || item.attr_id === 'PATIENT_ID') {
+                        item.fixed = true;
+                        if(StudyViewParams.params.studyId === 'mskimpact') {
+                            if (item.attr_id === 'CASE_ID') {
+                                item.column_width = 200;
+                            }
+                            if (item.attr_id === 'PATIENT_ID') {
+                                item.column_width = 160;
+                            }
+                        }
                     }
+                });
+
+                initTable(_.values(attr), data);
+                
+                if(_.isFunction(callback)) {
+                    callback();
                 }
-            }
-        });
-        
-        testElement = React.createElement(EnhancedFixedDataTable, {
+            })
+    }
+
+    function initTable(attr, arr) {
+        var table = React.createElement(EnhancedFixedDataTable, {
             input: {
-                data: data,
+                data: arr,
                 attributes: attr
             },
             filter: "ALL",
@@ -95,9 +151,8 @@ var StudyViewClinicalTabController = (function () {
             isResizable: true
         });
 
-        ReactDOM.render(testElement, document.getElementById('clinical-data-table-div'));
+        ReactDOM.render(table, document.getElementById('clinical-data-table-div'));
     }
-
     return {
         init: init
     };

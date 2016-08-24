@@ -28,21 +28,23 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
-
-
+ */
 
 
 var StudyViewMutationsTabController = (function() {
-    var init = function (){
-        StudyViewProxy.getMutatedGenesData().then(StudyViewInitMutationsTab.init)
+    var init = function(callback) {
+        StudyViewProxy.getMutatedGenesData()
+            .then(function(data) {
+                StudyViewInitMutationsTab.init(data);
+                if(_.isFunction(callback)) {
+                    callback();
+                }
+            });
     };
-    
+
     return {
-        init: function() {
-            init();
-        },
-        getDataTable: function () {
+        init: init,
+        getDataTable: function() {
             return StudyViewInitMutationsTab.getDataTable();
         }
     };
