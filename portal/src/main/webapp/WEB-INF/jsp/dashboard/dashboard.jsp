@@ -216,14 +216,14 @@ if (cancerStudyViewError!=null) {
 <link rel="stylesheet" href="css/dashboard/iviz-vendor.css"/>
 <link rel="stylesheet" href="css/dashboard/iviz.css"/>
 
-<script src="js/src/study-view/data/StudyViewProxy.js"></script>
-<script src="js/src/study-view/controller/StudyViewParams.js"></script>ipt>
-<script src="js/src/study-view/controller/StudyViewClinicalTabController.js"></script>
-<script src="js/src/study-view/view/StudyViewInitClinicalTab.js"></script>
-<script src="js/src/study-view/controller/StudyViewMutationsTabController.js"></script>
-<script src="js/src/study-view/view/StudyViewInitMutationsTab.js"></script>
-<script src="js/src/study-view/controller/StudyViewCNATabController.js"></script>
-<script src="js/src/study-view/view/StudyViewInitCNATab.js"></script>
+<script src="js/src/dashboard/model/StudyViewProxy.js"></script>
+<script src="js/src/dashboard/controller/StudyViewParams.js"></script>ipt>
+<script src="js/src/dashboard/controller/StudyViewClinicalTabController.js"></script>
+<script src="js/src/dashboard/controller/StudyViewMutationsTabController.js"></script>
+<script src="js/src/dashboard/controller/StudyViewCNATabController.js"></script>
+<script src="js/src/dashboard/view/StudyViewInitClinicalTab.js"></script>
+<script src="js/src/dashboard/view/StudyViewInitMutationsTab.js"></script>
+<script src="js/src/dashboard/view/StudyViewInitCNATab.js"></script>
 
 <script type="text/javascript">
 var cancerStudyId = '<%=cancerStudy.getCancerStudyStableId()%>';
