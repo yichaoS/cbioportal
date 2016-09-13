@@ -50,33 +50,6 @@ if (isDemoMode!=null) {
 CancerStudy cancerStudy = (CancerStudy)request.getAttribute(CancerStudyView.CANCER_STUDY);
 String cancerStudyViewError = (String)request.getAttribute(CancerStudyView.ERROR);
 
-String caseSetId = (String)request.getAttribute(QueryBuilder.CASE_SET_ID);
-List<String> caseIds = (List<String>)request.getAttribute(QueryBuilder.CASE_IDS);
-String jsonCaseIds = JSONValue.toJSONString(caseIds);
-
-GeneticProfile mutationProfile = (GeneticProfile)request.getAttribute(CancerStudyView.MUTATION_PROFILE);
-boolean hasMutation = mutationProfile!=null;
-
-boolean hasMutSig = cancerStudy!=null && cancerStudy.hasMutSigData();
-boolean showMutationsTab = hasMutation;
-
-GeneticProfile cnaProfile = (GeneticProfile)request.getAttribute(CancerStudyView.CNA_PROFILE);
-boolean hasCNA = cnaProfile!=null;
-
-boolean hasGistic = cancerStudy!=null && cancerStudy.hasGisticData();
-boolean showCNATab = hasGistic;
-
-String mutationProfileStableId = null;
-String cnaProfileStableId = null;
-if (mutationProfile!=null) {
-    mutationProfileStableId = mutationProfile.getStableId();
-}
-if (cnaProfile!=null) {
-    cnaProfileStableId = cnaProfile.getStableId();
-}
-
-boolean hasCnaSegmentData = cancerStudy!=null && cancerStudy.hasCnaSegmentData();
-
 if (cancerStudyViewError!=null) {
     out.print(cancerStudyViewError);
 } else {
@@ -88,18 +61,15 @@ if (cancerStudyViewError!=null) {
     <tr>
         <td>
             <form method="post" action="index.do">
-                <b><u><%=cancerStudy.getName()%></u></b>
-                <input type="hidden" name="cancer_study_id" value="<%=cancerStudy.getCancerStudyStableId()%>">
-                <input type="hidden" name="<%=QueryBuilder.CANCER_STUDY_LIST%>" value="<%=cancerStudy.getCancerStudyStableId()%>">
+            <span id="study_name"></span>
+                <input type="hidden" id="cancer_study_id" name="cancer_study_id">
+                <input type="hidden" id="cancer_study_list">
                 <input type="submit" value="Query this study" class="btn btn-primary btn-xs">
             </form>
         </td>
     </tr>
     <tr>
-        <td id="study-desc"><%=cancerStudy.getDescription()%>
-            <%if (null!=cancerStudy.getPmid()) {%>
-            &nbsp;<a href="http://www.ncbi.nlm.nih.gov/pubmed/<%=cancerStudy.getPmid()%>">PubMed</a>
-            <%}%>
+        <td id="study_desc">
         </td>
     </tr>
 </table>
@@ -112,14 +82,6 @@ if (cancerStudyViewError!=null) {
     <!--<li><a href='#clinical-plots' class='study-tab' title='DC Plots'>Study Summary</a></li>-->
     <li><a href='#clinical' id='study-tab-clinical-a' class='study-tab' title='Clinical Data'>Clinical Data</a></li>
     
-    <%if(showMutationsTab){%>
-    <li><a href='#mutations' id='study-tab-mutations-a' class='study-tab' title='Mutations'>Mutated Genes</a></li>
-    <%}%>
-    
-    <%if(showCNATab){%>
-    <li><a href='#cna' id='study-tab-cna-a' class='study-tab' title='Copy Number Alterations'>Copy Number Alterations</a></li>
-    <%}%>
-    
     </ul>
     
     <div class="study-section" id="summary">
@@ -130,17 +92,13 @@ if (cancerStudyViewError!=null) {
         <%@ include file="clinical.jsp" %>
     </div>
     
-    <%if(showMutationsTab){%>
-    <div class="study-section" id="mutations">
+    <div class="study-section" id="mutations" style="display:none;">
         <%@ include file="mutations.jsp" %>
     </div>
-    <%}%>
 
-    <%if(showCNATab){%>
-    <div class="study-section" id="cna">
+    <div class="study-section" id="cna"  style="display:none;">
         <%@ include file="cna.jsp" %>
     </div>
-    <%}%>
 
 </div>
 <%  
@@ -152,7 +110,7 @@ if (cancerStudyViewError!=null) {
 
 <tr>
     <td colspan="3">
-	<jsp:include page="../global/footer.jsp" flush="true" />
+    <jsp:include page="../global/footer.jsp" flush="true" />
     </td>
 </tr>
 
@@ -227,157 +185,183 @@ if (cancerStudyViewError!=null) {
 
 <script type="text/javascript">
 var cancerStudyId = '<%=cancerStudy.getCancerStudyStableId()%>';
-var cancerStudyName = '<%=StringEscapeUtils.escapeJavaScript(cancerStudy.getName())%>';
-var mutationProfileId = <%=mutationProfileStableId==null%>?null:'<%=mutationProfileStableId%>';
-var cnaProfileId = <%=cnaProfileStableId==null%>?null:'<%=cnaProfileStableId%>';
-var hasCnaSegmentData = <%=hasCnaSegmentData%>;
-var hasMutSig = <%=hasMutSig%>;
-var caseSetId = '<%=caseSetId%>';
-var caseIds = <%=jsonCaseIds%>;
 var cancer_study_id = cancerStudyId; //Some components using this as global ID
 var appVersion = '<%=GlobalProperties.getAppVersion()%>';
-var hasMutation = <%=hasMutation%>;
-var hasCNA = <%=hasCNA%>;
 
-
-$("#study-tabs").tabs({disabled: true});
-
-$('#study-tab-summary-a').click(function () {
-    if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
-        if(_.isUndefined(window.iviz.datamanager)) {
-            window.iviz.datamanager = new iViz.data.init(window.cbioURL, window.studyCasesMap, initdcplots);
-            window.iviz.datamanager.initialSetup();
-        }else {
-            initdcplots(window.iviz.datamanager.initialSetupResult);
-        }
-        $('#study-tab-summary-a').addClass("tab-clicked");
-    }
-    window.location.hash = '#summary';
-});
-
-$('#study-tab-clinical-a').click(function(){
-    if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
-        //First time: adjust the width of data table;
-        $("#clinical-data-table-loading-wait").css('display', 'inline-block');
-        $("#clinical-data-table-div").css('display','none');
-
-        if(_.isUndefined(window.iviz.datamanager)) {
-            window.iviz.datamanager = new iViz.data.init(window.cbioURL, window.studyCasesMap, function(a,b,c){
-                StudyViewClinicalTabController.init(function() {
-                    $("#clinical-data-table-div").css('display','inline-block');
-                    $("#clinical-data-table-loading-wait").css('display', 'none');
-                    $('#study-tab-clinical-a').addClass("tab-clicked");
-                });
-            });
-            window.iviz.datamanager.initialSetup();
-        }else {
-            StudyViewClinicalTabController.init(function() {
-                $("#clinical-data-table-div").css('display','inline-block');
-                $("#clinical-data-table-loading-wait").css('display', 'none');
-                $('#study-tab-clinical-a').addClass("tab-clicked");
-            });
-        }
-    }
-    window.location.hash = '#clinical';
-});
-
-$('#study-tab-mutations-a').click(function(){
-    if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
-        StudyViewMutationsTabController.init(function() {
-            $(this).addClass("tab-clicked");
-            StudyViewMutationsTabController.getDataTable().fnAdjustColumnSizing();
-        });
-    }
-    window.location.hash = '#mutations';
-});
-
-$('#study-tab-cna-a').click(function(){
-    if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
-        StudyViewCNATabController.init(function() {
-            $(this).addClass("tab-clicked");
-            StudyViewCNATabController.getDataTable().fnAdjustColumnSizing();
-        });
-    }
-    window.location.hash = '#cna';
-});
-
+var hasMutation = false;
+var hasCnaSegmentData = false;
+var cnaProfileId = '';
+var mutationProfileId = '';
 $(document).ready(function () {
-    // All temporory fixes, need to do the refacotoring with new iViz code
-    StudyViewParams.params = {
-        studyId: cancerStudyId,
-        caseIds: caseIds,
-        cnaProfileId: cnaProfileId,
-        mutationProfileId: mutationProfileId,
-        caseSetId: caseSetId,
-        hasMutSig: hasMutSig
-    };
-    StudyViewProxy.ivizLoad();
-
-    //Include style variables
-    window.style = {
-        vars: {}
-    };
-    var _vm = iViz.vue.manage.getInstance();
-    _vm.showSaveButton=false;
-    _vm.showManageButton=false;
-    $.get('js/src/dashboard/resources/vars.json')
-        .then(function (data) {
-            window.style.vars = data;
-            window.style.vars.survivalWidth = 320;
-            window.style.vars.survivalHeight = 320;
-            window.style.vars.barchartWidth = 350;
-            window.style.vars.barchartHeight = 120;
+    var appendMutationTab = function(){
+    	hasMutation = true;
+        $("#study-tabs ul").append("<li><a href='#mutations' id='study-tab-mutations-a' class='study-tab' title='Mutations'>Mutated Genes</a></li>");
+        $('#study-tabs > #mutations').css('display','block');
+        $('#study-tab-mutations-a').click(function(){
+            if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
+                StudyViewMutationsTabController.init(function() {
+                    $(this).addClass("tab-clicked");
+                    StudyViewMutationsTabController.getDataTable().fnAdjustColumnSizing();
+                });
+            }
+            window.location.hash = '#mutations';
         });
-    //this is for testing, once done this should be commented/deleted
-    window.cbioURL = window.location.origin + '/dashboard';
-    //commented for thesing
-    //window.cbioURL = window.location.origin + window.location.pathname.substring(0, window.location.pathname.indexOf("/",2));
-    window.mutationProfileId = window.mutationProfileId;
-    window.cnaProfileId = window.cnaProfileId;
-    window.case_set_id = window.caseSetId;
-    window.studyCasesMap = {};
-    window.studyCasesMap[window.cancerStudyId]={};
-    window.iviz = {};
-    
-    var urlHash = window.location.hash;
-    for (var i = 0, tabsL = $('#study-tabs').find('li').length; i < tabsL; i++) {
-        $('#study-tabs').tabs('enable', i);
     }
-
-    if (!_.isUndefined(urlHash)) {
-        switch (urlHash) {
-            case '#cna':
-                if ($('#study-tab-cna-a').length == 0) {
-                    $('#study-tab-summary-a').click();
-                } else {
-                    $('#study-tab-cna-a').click();
-                }
-                break;
-            case '#mutations':
-                if ($('#study-tab-mutations-a').length == 0) {
-                    $('#study-tab-summary-a').click();
-                } else {
-                    $('#study-tab-mutations-a').click();
-                }
-                break;
-            case '#clinical':
-                if ($('#study-tab-clinical-a').length == 0) {
-                    $('#study-tab-summary-a').click();
-                } else {
-                    $('#study-tab-clinical-a').click();
-                }
-                break;
-            case '#summary':
-                $('#study-tab-summary-a').click();
-                break;
-            default:
-                $('#study-tab-summary-a').click();
-                break;
-
+    var appendCnaTab = function(){
+    	hasCnaSegmentData = true;
+        $("#study-tabs ul").append("<li><a href='#cna' id='study-tab-cna-a' class='study-tab' title='Copy Number Alterations'>Copy Number Alterations</a></li>");
+        $('#study-tabs > #cna').css('display','block');
+        $('#study-tab-cna-a').click(function(){
+            if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
+                StudyViewCNATabController.init(function() {
+                    $(this).addClass("tab-clicked");
+                    StudyViewCNATabController.getDataTable().fnAdjustColumnSizing();
+                });
+            }
+            window.location.hash = '#cna';
+        });
+    }
+    // TODO: All temporory fixes, need to do the refacotoring with new iViz code
+    $.when( window.cbioportal_client.getStudies({ study_id: [cancerStudyId]}), window.cbioportal_client.getGeneticProfiles({ study_id: [cancerStudyId]}))
+    .then(function(_cancerStudy, _geneticProfiles){
+        $("#study_name").html("<b><u>"+_cancerStudy[0].name+"</u></b>");
+        $("#cancer_study_id").val(cancerStudyId);
+        $("#cancer_study_list").val(cancerStudyId);
+        var _desc = _cancerStudy[0].description
+        if(_cancerStudy[0].pmid !== null){
+            _desc += '<a href="http://www.ncbi.nlm.nih.gov/pubmed/'+_cancerStudy[0].pmid+'">PubMed</a>';
         }
-    } else {
-        $('#study-tab-summary-a').click();
-    }
+        $("#study_desc").html(_desc);
+        // TODO need to update this once latest iViz is merged. Since iViz datamanager has functions that directly gic
+         var _mutationProfiles = _.filter(_geneticProfiles, function (_profile) {
+             return _profile.study_id + '_mutations' === _profile.id;
+         });
+         if(_mutationProfiles.length>0){
+             appendMutationTab();
+         }
+         var _cnaProfiles = _.filter(_geneticProfiles, function (_profile) {
+             return _profile.study_id + '_gistic' === _profile.id;
+         });
+         if(_cnaProfiles.length>0){
+             appendCnaTab();
+         }
+         
+         $("#study-tabs").tabs({disabled: true});
+
+         $('#study-tab-summary-a').click(function () {
+             if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
+                 if(_.isUndefined(window.iviz.datamanager)) {
+                     window.iviz.datamanager = new iViz.data.init(window.cbioURL, window.studyCasesMap, initdcplots);
+                     window.iviz.datamanager.initialSetup();
+                 }else {
+                     initdcplots(window.iviz.datamanager.initialSetupResult);
+                 }
+                 $('#study-tab-summary-a').addClass("tab-clicked");
+             }
+             window.location.hash = '#summary';
+         });
+
+         $('#study-tab-clinical-a').click(function(){
+             if (!$(this).parent().hasClass('ui-state-disabled') && !$(this).hasClass("tab-clicked")) {
+                 //First time: adjust the width of data table;
+                 $("#clinical-data-table-loading-wait").css('display', 'inline-block');
+                 $("#clinical-data-table-div").css('display','none');
+
+                 if(_.isUndefined(window.iviz.datamanager)) {
+                     window.iviz.datamanager = new iViz.data.init(window.cbioURL, window.studyCasesMap, function(a,b,c){
+                         StudyViewClinicalTabController.init(function() {
+                             $("#clinical-data-table-div").css('display','inline-block');
+                             $("#clinical-data-table-loading-wait").css('display', 'none');
+                             $('#study-tab-clinical-a').addClass("tab-clicked");
+                         });
+                     });
+                     window.iviz.datamanager.initialSetup();
+                 }else {
+                     StudyViewClinicalTabController.init(function() {
+                         $("#clinical-data-table-div").css('display','inline-block');
+                         $("#clinical-data-table-loading-wait").css('display', 'none');
+                         $('#study-tab-clinical-a').addClass("tab-clicked");
+                     });
+                 }
+             }
+             window.location.hash = '#clinical';
+         });
+         
+         // TODO changed mutationProfileId to mutationProfileIds
+         StudyViewParams.params = {
+                    studyId: cancerStudyId,
+                    mutationProfileId: _mutationProfiles[0].id,
+                    hasMutSig: hasMutation
+                };
+                StudyViewProxy.ivizLoad();
+
+                //Include style variables
+                window.style = {
+                    vars: {}
+                };
+                var _vm = iViz.vue.manage.getInstance();
+                _vm.showSaveButton=false;
+                _vm.showManageButton=false;
+                $.get('js/src/dashboard/resources/vars.json')
+                    .then(function (data) {
+                        window.style.vars = data;
+                        window.style.vars.survivalWidth = 320;
+                        window.style.vars.survivalHeight = 320;
+                        window.style.vars.barchartWidth = 350;
+                        window.style.vars.barchartHeight = 120;
+                    });
+                //this is for testing, once done this should be commented/deleted
+                //window.cbioURL = window.location.origin + '/dashboard';
+                //commented for thesing
+                window.cbioURL = window.location.origin + window.location.pathname.substring(0, window.location.pathname.indexOf("/",2));
+                //window.mutationProfileId = window.mutationProfileId;
+               // window.cnaProfileId = window.cnaProfileId;
+               // window.case_set_id = window.caseSetId;
+                window.studyCasesMap = {};
+                window.studyCasesMap[window.cancerStudyId]={};
+                window.iviz = {};
+                
+                var urlHash = window.location.hash;
+                for (var i = 0, tabsL = $('#study-tabs').find('li').length; i < tabsL; i++) {
+                    $('#study-tabs').tabs('enable', i);
+                }
+
+                if (!_.isUndefined(urlHash)) {
+                    switch (urlHash) {
+                        case '#cna':
+                            if ($('#study-tab-cna-a').length == 0) {
+                                $('#study-tab-summary-a').click();
+                            } else {
+                                $('#study-tab-cna-a').click();
+                            }
+                            break;
+                        case '#mutations':
+                            if ($('#study-tab-mutations-a').length == 0) {
+                                $('#study-tab-summary-a').click();
+                            } else {
+                                $('#study-tab-mutations-a').click();
+                            }
+                            break;
+                        case '#clinical':
+                            if ($('#study-tab-clinical-a').length == 0) {
+                                $('#study-tab-summary-a').click();
+                            } else {
+                                $('#study-tab-clinical-a').click();
+                            }
+                            break;
+                        case '#summary':
+                            $('#study-tab-summary-a').click();
+                            break;
+                        default:
+                            $('#study-tab-summary-a').click();
+                            break;
+
+                    }
+                } else {
+                    $('#study-tab-summary-a').click();
+                }
+    })
+    
 });
 </script>
 
