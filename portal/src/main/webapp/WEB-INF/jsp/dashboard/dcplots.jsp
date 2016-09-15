@@ -96,7 +96,7 @@
 
         <span class="breadcrumb_container" v-if="customfilter.patientIds.length>0||customfilter.sampleIds.length>0">
           <span>{{customfilter.display_name}}</span>
-          <i class="fa fa-times breadcrumb_remove" @click="clearAllCharts()"></i>
+          <i class="fa fa-times breadcrumb_remove" @click="clearAllCharts(true)"></i>
         </span>
             <div style="float:left" v-for="group in groups">
                 <bread-crumb :attributes.sync="item"
@@ -104,7 +104,7 @@
                              v-if="item.filter.length>0"></bread-crumb>
             </div>
             <div>
-                <button type='button' @click="clearAllCharts()" class="btn btn-default btn-xs">Clear All</button>
+                <button type='button' @click="clearAllCharts(true)" class="btn btn-default btn-xs">Clear All</button>
             </div>
         </div>
     </div>
@@ -112,7 +112,7 @@
         <main-template :groups.sync="groups" :redrawgroups.sync="redrawgroups"
                        :selectedpatients.sync="selectedpatients"
                        :selectedsamples.sync="selectedsamples"
-                       :hasfilters.sync="hasfilters" :customfilter.sync="customfilter"></main-template>
+                       :hasfilters.sync="hasfilters" :customfilter.sync="customfilter" :clear-all="clearAll"></main-template>
     </div>
 
 </div>
