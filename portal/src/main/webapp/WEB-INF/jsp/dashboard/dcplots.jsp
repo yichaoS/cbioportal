@@ -81,7 +81,7 @@
         <div id="iviz-header-right">
             <custom-case-input></custom-case-input>
             <select id="iviz-add-chart" class="chosen-select"
-                    v-select :charts="charts">
+                    v-select :charts="charts"  v-if="showDropDown">
                 <option id='' value="">Add Chart</option>
                 <option id="{{data.attr_id}}" v-if="!data.show" value="{{data.attr_id}}" v-for="(index,data) in charts">
                     {{data.display_name}}
@@ -96,7 +96,7 @@
 
         <span class="breadcrumb_container" v-if="customfilter.patientIds.length>0||customfilter.sampleIds.length>0">
           <span>{{customfilter.display_name}}</span>
-          <i class="fa fa-times breadcrumb_remove" @click="clearAll()"></i>
+          <i class="fa fa-times breadcrumb_remove" @click="clearAllCharts()"></i>
         </span>
             <div style="float:left" v-for="group in groups">
                 <bread-crumb :attributes.sync="item"
@@ -104,7 +104,7 @@
                              v-if="item.filter.length>0"></bread-crumb>
             </div>
             <div>
-                <button type='button' @click="clearAll()" class="btn btn-default btn-xs">Clear All</button>
+                <button type='button' @click="clearAllCharts()" class="btn btn-default btn-xs">Clear All</button>
             </div>
         </div>
     </div>
