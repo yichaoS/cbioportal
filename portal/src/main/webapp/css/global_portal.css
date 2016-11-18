@@ -1449,8 +1449,21 @@ cursor: default;
     postition: relative;
 }
 
-.score_threshold label {
-    font-weight: normal;
+.score_threshold {
+    border: 1px solid lightgrey;
+    height: 57px;
+    width: 400px;
+    padding-top: 15px;
+    padding-left: 20px;
+    border-radius: 10px;
+    margin-left: 25px;
+    margin-top: 0px;
+    box-shadow: 0 1px 1px 0 lightgrey;
+ }
+
+.score_threshold input[type=text]{
+    height: 7px;
+    width: 30px;
 }
 
 /* This is the gene_list input text area */
@@ -1469,13 +1482,6 @@ cursor: default;
    margin-top:2px;
    margin-bottom:5px;
    font-size:90%;
-}
-
-/* Z-score threshold input (hidden until appropriate radio button selected) */
-.score_threshold {
-   display: none;
-   margin-left: 64px;
-   font-size: 90%;
 }
 
 /* Do not allow user to resize the text area */

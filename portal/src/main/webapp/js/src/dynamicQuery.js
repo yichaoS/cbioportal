@@ -50,7 +50,6 @@ var PROFILE_MUTATION = "PROFILE_MUTATION";
 var PROFILE_MUTATION_EXTENDED = "PROFILE_MUTATION_EXTENDED";
 var PROFILE_COPY_NUMBER_ALTERATION = "PROFILE_COPY_NUMBER_ALTERATION"
 var PROFILE_MRNA_EXPRESSION = "PROFILE_MRNA_EXPRESSION";
-var PROFILE_PROTEIN = "PROFILE_PROTEIN";
 var PROFILE_PROTEIN_EXPRESSION = "PROFILE_PROTEIN_EXPRESSION";
 var PROFILE_METHYLATION = "PROFILE_METHYLATION"
 
@@ -134,7 +133,6 @@ $(document).ready(function(){
     $.cookie("results-tab",null);
 
 });  //  end document ready function
-
 
 function supportsHTML5Storage() {
 	// from diveintohtml5.info/storage.html
@@ -265,30 +263,17 @@ function reviewCurrentSelections(){
     // selected, iterate through checkboxes to see if any are selected; if not,
     // make default selections
     if (window.tab_index !== "tab_download" && $("#select_single_study").val() !== 'all'){
-         var setDefaults = true;
-
-         // if no checkboxes are checked, make default selections
-         $('#genomic_profiles input:checkbox').each(function(){
-             if ($(this).prop('checked')){
-                 setDefaults = false;
-                 return;
-             }
-         });
-
-         if (setDefaults){
-             console.log("reviewCurrentSelections ( makeDefaultSelections() )");
-             makeDefaultSelections();
-         }
+        makeDefaultSelections();
     } 
 
     updateDefaultCaseList();
 
     // determine whether mRNA threshold field should be shown or hidden
     // based on which, if any mRNA profiles are selected
-    toggleThresholdPanel($("." + PROFILE_MRNA_EXPRESSION+"[type=checkbox]"), PROFILE_MRNA_EXPRESSION, "#z_score_threshold");
+    toggleThresholdPanel($("." + PROFILE_MRNA_EXPRESSION+"[type=checkbox]"), PROFILE_MRNA_EXPRESSION, "#mrna_exp_zscore_threshold_div");
 
     // similarly with RPPA
-    toggleThresholdPanel($("." + PROFILE_PROTEIN_EXPRESSION+"[type=checkbox]"), PROFILE_PROTEIN_EXPRESSION, "#rppa_score_threshold");
+    toggleThresholdPanel($("." + PROFILE_PROTEIN_EXPRESSION+"[type=checkbox]"), PROFILE_PROTEIN_EXPRESSION, "#protein_exp_zscore_threshold_div");
 
     // determine whether optional arguments section should be shown or hidden
  //   if ($("#optional_args > input").length >= 1){
@@ -543,26 +528,10 @@ function genomicProfilesUnavailable(){
 
 // Show or hide mRNA threshold field based on mRNA profile selected
 function toggleThresholdPanel(profileClicked, profile, threshold_div) {
-    var selectedProfile = profileClicked.val();
-    var inputType = profileClicked.attr('type');
-
-    // when a radio button is clicked, show threshold input unless user chooses expression outliers
-    if(inputType == 'radio'){
-        if(selectedProfile.indexOf("outlier")==-1){
-            $(threshold_div).slideDown();
-        } else {
-            $(threshold_div).slideUp();
-        }
-    } else if(inputType == 'checkbox'){
-
-        // if there are NO subgroups, show threshold input when mRNA checkbox is selected.
-        if (profileClicked.prop('checked')){
-            $(threshold_div).slideDown();
-        }
-        // if checkbox is unselected, hide threshold input regardless of whether there are subgroups
-        else {
-            $(threshold_div).slideUp();
-        }
+    if (profileClicked.prop('checked')){
+        $(threshold_div).show();
+    } else {
+        $(threshold_div).hide();
     }
 }
 
@@ -634,11 +603,7 @@ function updateCancerStudyInformation() {
     addGenomicProfiles(cancer_study.genomic_profiles, "MUTATION_EXTENDED", PROFILE_MUTATION_EXTENDED, "Mutation");
     addGenomicProfiles(cancer_study.genomic_profiles, "COPY_NUMBER_ALTERATION", PROFILE_COPY_NUMBER_ALTERATION, "Copy Number");
     addGenomicProfiles(cancer_study.genomic_profiles, "MRNA_EXPRESSION", PROFILE_MRNA_EXPRESSION, "mRNA Expression");
-    addGenomicProfiles(cancer_study.genomic_profiles, "METHYLATION", PROFILE_METHYLATION, "DNA Methylation");
-    addGenomicProfiles(cancer_study.genomic_profiles, "METHYLATION_BINARY", PROFILE_METHYLATION, "DNA Methylation");
-    //addGenomicProfiles(cancer_study.genomic_profiles, "PROTEIN_LEVEL", PROFILE_PROTEIN, "Protein Level");
     addGenomicProfiles(cancer_study.genomic_profiles, "PROTEIN_LEVEL", PROFILE_PROTEIN_EXPRESSION, "Protein/phosphoprotein level");
-
 
     //  if no genomic profiles available, set message and disable submit button
     if ($("#genomic_profiles").html()==""){
@@ -682,12 +647,12 @@ function updateCancerStudyInformation() {
 
     //  Set up an Event Handler for showing/hiding mRNA threshold input
     $("." + PROFILE_MRNA_EXPRESSION).click(function(){
-       toggleThresholdPanel($(this), PROFILE_MRNA_EXPRESSION, "#z_score_threshold");
+       toggleThresholdPanel($(this), PROFILE_MRNA_EXPRESSION, "#mrna_exp_zscore_threshold_div");
     });
 
     //  Set up an Event Handler for showing/hiding RPPA threshold input
     $("." + PROFILE_PROTEIN_EXPRESSION).click(function(){
-       toggleThresholdPanel($(this), PROFILE_PROTEIN_EXPRESSION, "#rppa_score_threshold");
+       toggleThresholdPanel($(this), PROFILE_PROTEIN_EXPRESSION, "#protein_exp_zscore_threshold_div");
     });
 
     // Set default selections and make sure all steps are visible
@@ -1396,7 +1361,7 @@ function addGenomicProfiles (genomic_profiles, targetAlterationType, targetClass
     //  First count how many profiles match the targetAltertion type
     jQuery.each(genomic_profiles,function(key, genomic_profile) {
         if (genomic_profile.alteration_type == targetAlterationType) {
-            if (downloadTab || genomic_profile.show_in_analysis_tab == true) {
+            if (downloadTab || genomic_profile.datatype !== "Z-SCORE") {
                 numProfiles++;
             }
         }
@@ -1421,7 +1386,7 @@ function addGenomicProfiles (genomic_profiles, targetAlterationType, targetClass
     jQuery.each(genomic_profiles,function(key, genomic_profile) {
 
         if (genomic_profile.alteration_type == targetAlterationType) {
-            if (downloadTab || genomic_profile.show_in_analysis_tab == true) {
+            if (downloadTab || genomic_profile.datatype !== "Z-SCORE") {
                 //  Branch depending on number of profiles
                 var optionType = "checkbox";
                 if (downloadTab) {
@@ -1444,26 +1409,51 @@ function addGenomicProfiles (genomic_profiles, targetAlterationType, targetClass
         profileHtml += "</div>";
     }
 
-    if(targetClass == PROFILE_MRNA_EXPRESSION && downloadTab == false){
-        var inputName = 'Z_SCORE_THRESHOLD';
-        profileHtml += "<div id='z_score_threshold' class='score_threshold'>"
-        + "<label>Enter a z-score threshold &#177: "
-        + "<input type='text' name='" + inputName + "' size='6' value='"
-                + window.zscore_threshold + "'>"
-        + "</label></div>";
-    }
-
-    if(targetClass == PROFILE_PROTEIN_EXPRESSION && downloadTab == false){
-        var inputName = 'RPPA_SCORE_THRESHOLD';
-        profileHtml += "<div id='rppa_score_threshold' class='score_threshold'>"
-        + "<label>Enter a z-score threshold &#177: "
-        + "<input type='text' name='" + inputName + "' size='6' value='"
-                + window.rppa_score_threshold + "'>"
-        + "</label></div>";
+    if((targetClass === PROFILE_MRNA_EXPRESSION || 
+        targetClass === PROFILE_PROTEIN_EXPRESSION) && 
+        downloadTab === false){
+        profileHtml += addZscoreDiv(targetClass);
     }
     
     $("#genomic_profiles").append(profileHtml);
 }
+
+var addZscoreDiv = function(targetClass) {
+    
+    // draw out div
+    var _applyUpThresholdId = '', _applyDownThresholdId = '';
+    var _upThresholdVal = '', _downThresholdVal = '';
+    var _divId = '', _selectId = '';
+    if (targetClass === PROFILE_MRNA_EXPRESSION) {
+        _divId = 'mrna_exp_zscore_threshold_div';
+        _selectId = 'mrna_exp_zscore_threshold_sample_set';
+        _applyUpThresholdId = 'mrna_exp_apply_up_threshold';
+        _applyDownThresholdId = 'mrna_exp_apply_down_threshold';
+        _upThresholdVal = 'mrna_exp_up_threshold_val';
+        _downThresholdVal = 'mrna_exp_down_threshold_val';
+    } else if (targetClass === PROFILE_PROTEIN_EXPRESSION) {
+        _divId = 'protein_exp_zscore_threshold_div';
+        _selectId = 'protein_exp_zscore_threshold_sample_set';
+        _applyUpThresholdId = 'protein_exp_apply_up_threshold';
+        _applyDownThresholdId = 'protein_exp_apply_down_threshold';
+        _upThresholdVal = 'protein_exp_up_threshold_val';
+        _downThresholdVal = 'protein_exp_down_threshold_val';
+    }
+    var zscoreHtml = "<div id='" + _divId + "' class='score_threshold' style='display:none;'>" +
+        "<label>Enter z-Score Threshold:&nbsp;&nbsp;</label>" +
+        "<input type='checkbox' id='" + _applyUpThresholdId + "' checked />" +
+        "Up&nbsp;<input type='text' id='" + _upThresholdVal + "' placeholder='+2.0' val=+2.0 />&nbsp;&nbsp;" +
+        "<input type='checkbox' id='" + _applyDownThresholdId + "' checked />" +
+        "Down&nbsp;<input type='text' id='" + _downThresholdVal + "' placeholder='-2.0' val=-2.0 /><br>" +
+        "Sample Set:&nbsp;&nbsp;<select id='" + _selectId + "'>" +
+        "<option val='diploid'>Samples with diploid copy number of the gene in question</option>" +
+        "<option val='all'>All profiled samples</option>" +
+        "</select>" +
+        "</div>";
+    
+    return zscoreHtml;
+
+} 
 
 // Outputs a Single Genomic Profile Options
 function outputGenomicProfileOption (downloadTab, optionType, targetClass, id, name,
