@@ -38,7 +38,6 @@ import org.mskcc.cbio.portal.model.ProfileDataSummary;
 import org.mskcc.cbio.portal.oncoPrintSpecLanguage.OncoPrintSpecification;
 import org.mskcc.cbio.portal.util.ProfileMerger;
 import org.mskcc.cbio.io.WebFileConnect;
-import org.mskcc.cbio.portal.util.ZScoreUtil;
 import org.mskcc.cbio.portal.model.GeneticProfile;
 import org.mskcc.cbio.portal.model.GeneticAlterationType;
 
@@ -62,11 +61,12 @@ public class TestOddsRatio extends TestCase {
         
         String[] genes = { "BRCA1", "BRCA2" };
         OncoPrintSpecification anOncoPrintSpecification = new OncoPrintSpecification( genes );
+
         
         ProfileMerger merger = new ProfileMerger(profileList);
         ProfileData mergedProfile = merger.getMergedProfile();
         ProfileDataSummary pDataSummary = new ProfileDataSummary(mergedProfile, anOncoPrintSpecification,
-                ZScoreUtil.Z_SCORE_THRESHOLD_DEFAULT, ZScoreUtil.RPPA_SCORE_THRESHOLD_DEFAULT);
+               2.0 , 2.0); // using threshold from UI + separate up&down thresholds
 
         OddsRatio oddsRatio = new OddsRatio(pDataSummary, "BRCA1", "BRCA2");
         double oddsRatioValue = oddsRatio.getOddsRatio();

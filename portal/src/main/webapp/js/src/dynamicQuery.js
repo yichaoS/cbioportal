@@ -1415,39 +1415,87 @@ function addGenomicProfiles (genomic_profiles, targetAlterationType, targetClass
         profileHtml += addZscoreDiv(targetClass);
     }
     
+    
+    
     $("#genomic_profiles").append(profileHtml);
 }
 
 var addZscoreDiv = function(targetClass) {
     
     // draw out div
+    var _allSampleSetSel = '', _diploidSampleSetSel = '';
     var _applyUpThresholdId = '', _applyDownThresholdId = '';
-    var _upThresholdVal = '', _downThresholdVal = '';
+    var _applyUpThresholdVal = '', _applyDownThresholdVal = '';
+    var _upThresholdValId = '', _downThresholdValId = '';
+    var _upThresholdVal = 0, _downThresholdVal = 0;
     var _divId = '', _selectId = '';
     if (targetClass === PROFILE_MRNA_EXPRESSION) {
+        // ids
         _divId = 'mrna_exp_zscore_threshold_div';
-        _selectId = 'mrna_exp_zscore_threshold_sample_set';
+        _selectId = 'mrna_exp_zscore_sample_set';
         _applyUpThresholdId = 'mrna_exp_apply_up_threshold';
         _applyDownThresholdId = 'mrna_exp_apply_down_threshold';
-        _upThresholdVal = 'mrna_exp_up_threshold_val';
-        _downThresholdVal = 'mrna_exp_down_threshold_val';
+        _upThresholdValId = 'mrna_exp_up_threshold_val';
+        _downThresholdValId = 'mrna_exp_down_threshold_val';
+        // values
+        if (window.apply_mrna_zscore_up_threshold === 'true') {
+            _applyUpThresholdVal = 'checked';
+        } else {
+            _applyUpThresholdVal = 'unchecked';
+        }
+        _upThresholdVal = window.mrna_zscore_up_threshold;
+        if (window.apply_mrna_zscore_down_threshold === 'true') {
+            _applyDownThresholdVal = 'checked';
+        } else {
+            _applyDownThresholdVal = 'unchecked';
+        }
+        _downThresholdVal = window.mrna_zscore_down_threshold;
+        if (window.mrna_exp_zscore_sample_set === 'all') {
+            _allSampleSetSel = 'selected';
+            _diploidSampleSetSel = 'unselected';
+        } else if (window.mrna_exp_zscore_sample_set === 'diploid') {
+            _allSampleSetSel = 'unselected';
+            _diploidSampleSetSel = 'selected';
+        }
     } else if (targetClass === PROFILE_PROTEIN_EXPRESSION) {
+        // ids
         _divId = 'protein_exp_zscore_threshold_div';
-        _selectId = 'protein_exp_zscore_threshold_sample_set';
+        _selectId = 'protein_exp_zscore_sample_set';
         _applyUpThresholdId = 'protein_exp_apply_up_threshold';
         _applyDownThresholdId = 'protein_exp_apply_down_threshold';
-        _upThresholdVal = 'protein_exp_up_threshold_val';
-        _downThresholdVal = 'protein_exp_down_threshold_val';
+        _upThresholdValId = 'protein_exp_up_threshold_val';
+        _downThresholdValId = 'protein_exp_down_threshold_val';
+        // values
+        if (window.apply_protein_zscore_up_threshold === 'true') {
+            _applyUpThresholdVal = 'checked';
+        } else {
+            _applyUpThresholdVal = 'unchecked';
+        }
+        _upThresholdVal = window.protein_exp_zscore_up_threshold;
+        if (window.apply_protein_zscore_down_threshold === 'true') {
+            _applyDownThresholdVal = 'checked';
+        } else {
+            _applyDownThresholdVal = 'unchecked';
+        }
+        _downThresholdVal = window.protein_exp_zscore_down_threshold;
+        if (window.protein_exp_zscore_sample_set === 'all') {
+            _allSampleSetSel = 'selected';
+            _diploidSampleSetSel = 'unselected';
+        } else if (window.protein_exp_zscore_sample_set === 'diploid') {
+            _allSampleSetSel = 'unselected';
+            _diploidSampleSetSel = 'selected';
+        }
     }
+    
     var zscoreHtml = "<div id='" + _divId + "' class='score_threshold' style='display:none;'>" +
         "<label>Enter z-Score Threshold:&nbsp;&nbsp;</label>" +
-        "<input type='checkbox' id='" + _applyUpThresholdId + "' checked />" +
-        "Up&nbsp;<input type='text' id='" + _upThresholdVal + "' placeholder='+2.0' val=+2.0 />&nbsp;&nbsp;" +
-        "<input type='checkbox' id='" + _applyDownThresholdId + "' checked />" +
-        "Down&nbsp;<input type='text' id='" + _downThresholdVal + "' placeholder='-2.0' val=-2.0 /><br>" +
-        "Sample Set:&nbsp;&nbsp;<select id='" + _selectId + "'>" +
-        "<option val='diploid'>Samples with diploid copy number of the gene in question</option>" +
-        "<option val='all'>All profiled samples</option>" +
+        "<input type='checkbox' name='" + _applyUpThresholdId + "' " + _applyUpThresholdVal + " />" +
+        "Up&nbsp;<input type='text' name='" + _upThresholdValId + "' value=" + _upThresholdVal + " />&nbsp;&nbsp;" +
+        "<input type='checkbox' name='" + _applyDownThresholdId + "' " + _applyDownThresholdVal + " />" +
+        "Down&nbsp;<input type='text' name='" + _downThresholdValId + "' value=" + _downThresholdVal + " /><br>" +
+        "Sample Set:&nbsp;&nbsp;<select name='" + _selectId + "' id='" + _selectId + "'>" +
+        "<option value='diploid' " + _diploidSampleSetSel + ">Samples with diploid copy number of the gene in question</option>" +
+        "<option value='all' " + _allSampleSetSel + ">All profiled samples</option>" +
         "</select>" +
         "</div>";
     
