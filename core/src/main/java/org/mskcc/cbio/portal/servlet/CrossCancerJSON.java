@@ -321,8 +321,14 @@ public class CrossCancerJSON extends HttpServlet {
         ProfileMerger merger = new ProfileMerger(profileDataList);
         ProfileData mergedProfile = merger.getMergedProfile();
 
-        ProfileDataSummary dataSummary = new ProfileDataSummary(mergedProfile,
-                theOncoPrintSpecParserOutput.getTheOncoPrintSpecification(), mRnaZscoreUpThreshold, proteinZscoreUpThreshold); //TODO: separate up & down threshold
+        ProfileDataSummary dataSummary = new ProfileDataSummary(
+            mergedProfile,
+            theOncoPrintSpecParserOutput.getTheOncoPrintSpecification(), 
+            mRnaZscoreUpThreshold, 
+            mRnaZscoreDownThreshold,
+            proteinZscoreUpThreshold,
+            proteinZscoreDownThreshold
+        ); //TODO: separate up & down threshold
         return dataSummary;
     }
 }

@@ -1,4 +1,4 @@
-window.initDatamanager = function (genetic_profile_ids, oql_query, cancer_study_ids, study_sample_map, z_score_threshold, rppa_score_threshold,
+window.initDatamanager = function (genetic_profile_ids, oql_query, cancer_study_ids, study_sample_map, mrna_exp_z_score_up_threshold, mrna_exp_z_score_down_threshold, protein_exp_z_score_up_threshold, protein_exp_z_score_down_threshold,
 	case_set_properties) {
 
     var deepCopyObject = function (obj) {
@@ -1123,12 +1123,12 @@ window.initDatamanager = function (genetic_profile_ids, oql_query, cancer_study_
 					default_oql_uniq["HOMDEL"] = true;
 					break;
 				    case "MRNA_EXPRESSION":
-					default_oql_uniq["EXP>=" + z_score_threshold] = true;
-					default_oql_uniq["EXP<=-" + z_score_threshold] = true;
+					default_oql_uniq["EXP>=" + mrna_exp_z_score_up_threshold] = true;
+					default_oql_uniq["EXP<=" + mrna_exp_z_score_down_threshold] = true;
 					break;
 				    case "PROTEIN_LEVEL":
-					default_oql_uniq["PROT>=" + rppa_score_threshold] = true;
-					default_oql_uniq["PROT<=-" + rppa_score_threshold] = true;
+					default_oql_uniq["PROT>=" + protein_exp_z_score_up_threshold] = true;
+					default_oql_uniq["PROT<=" + protein_exp_z_score_down_threshold] = true;
 					break;
 				}
 			    }

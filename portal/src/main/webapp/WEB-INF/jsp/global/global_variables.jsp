@@ -205,8 +205,10 @@
                                                             converted_oql,
                                                             ['<%=cancerStudyId%>'.trim()],
                                                             JSON.parse('<%=studySampleMapJson%>'),
-                                                            parseFloat('2.0'), // TODO: get thresholds from UI
-                                                            parseFloat('2.0'), // TODO: separate down/up threshold for protein exp/ mrna exp profiles
+                                                            parseFloat('<%=mRnaZscoreUpThreshold%>'),
+                                                            parseFloat('<%=mRnaZscoreDownThreshold%>'),
+                                                            parseFloat('<%=proteinZscoreUpThreshold%>'),
+                                                            parseFloat('<%=proteinZscoreDownThreshold%>'),
                                                             {
                                                                 case_set_id: '<%=sampleSetId%>',
                                                                 case_ids_key: '<%=sampleIdsKey%>',
