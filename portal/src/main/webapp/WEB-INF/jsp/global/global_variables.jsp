@@ -207,14 +207,19 @@
                                                             JSON.parse('<%=studySampleMapJson%>'),
                                                             parseFloat('<%=mRnaZscoreUpThreshold%>'),
                                                             parseFloat('<%=mRnaZscoreDownThreshold%>'),
+                                                            '<%=mrnaZscoreSampleSet%>',
                                                             parseFloat('<%=proteinZscoreUpThreshold%>'),
                                                             parseFloat('<%=proteinZscoreDownThreshold%>'),
+                                                            '<%=proteinExpZscoreSampleSet%>',
                                                             {
                                                                 case_set_id: '<%=sampleSetId%>',
                                                                 case_ids_key: '<%=sampleIdsKey%>',
                                                                 case_set_name: '<%=sampleSetName%>',
                                                                 case_set_description: '<%=sampleSetDescription%>'
                                                             });
+        $.when(window.QuerySession.getZscores()).then(function(result) {
+            console.log(result);
+        });
     })();
 </script>
 

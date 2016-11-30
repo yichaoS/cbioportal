@@ -1,5 +1,8 @@
-window.initDatamanager = function (genetic_profile_ids, oql_query, cancer_study_ids, study_sample_map, mrna_exp_z_score_up_threshold, mrna_exp_z_score_down_threshold, protein_exp_z_score_up_threshold, protein_exp_z_score_down_threshold,
-	case_set_properties) {
+window.initDatamanager = function (
+    genetic_profile_ids, oql_query, cancer_study_ids, study_sample_map, 
+    mrna_exp_z_score_up_threshold, mrna_exp_z_score_down_threshold, mrna_exp_z_score_sample_set,
+    protein_exp_z_score_up_threshold, protein_exp_z_score_down_threshold, protein_exp_z_score_sample_set,
+    case_set_properties) {
 
     var deepCopyObject = function (obj) {
 	return $.extend(true, ($.isArray(obj) ? [] : {}), obj);
@@ -915,7 +918,7 @@ window.initDatamanager = function (genetic_profile_ids, oql_query, cancer_study_
 	    session_filter_change_callbacks[i]();
 	}
     };
-
+    
     return {
 	'known_mutation_settings': {
 	    'ignore_unknown': false,
@@ -930,6 +933,12 @@ window.initDatamanager = function (genetic_profile_ids, oql_query, cancer_study_
 	'cancer_study_ids': cancer_study_ids,
 	'study_sample_map': study_sample_map,
 	'genetic_profile_ids': genetic_profile_ids,
+    'mrna_exp_z_score_up_threshold': mrna_exp_z_score_up_threshold,
+    'mrna_exp_z_score_down_threshold': mrna_exp_z_score_down_threshold,
+    'mrna_exp_z_score_sample_set': mrna_exp_z_score_sample_set,
+    'protein_exp_z_score_up_threshold': protein_exp_z_score_up_threshold,
+    'protein_exp_z_score_down_threshold': protein_exp_z_score_down_threshold,
+    'protein_exp_z_score_sample_set': protein_exp_z_score_sample_set,
 	'mutation_counts': {},
 	'getKnownMutationSettings': function () {
 	    return deepCopyObject(this.known_mutation_settings);
@@ -1553,5 +1562,94 @@ window.initDatamanager = function (genetic_profile_ids, oql_query, cancer_study_
 			fetch_promise.reject();
 		    });
 		}),
+    'getZscores': makeCachedPromiseFunction(
+        
+        function(self, fetch_promise) {
+            //var self = this;
+            var genomicDataQueriedSamples = [];
+            var genomicDataAllSamples = [];
+            var genomicDataAllDiploidSampleIds = [];
+            var genomicDataAllDiploidSamples = [];
+
+            // var d = $.Deferred();
+            // setInterval(function(){ 
+            //     if (typeof window.cbioportal_client !== 'undefined') {
+            //         clearInterval(this);
+            //         d.resolve();
+            //         return d.promise;
+            //     } 
+            // }, 100);
+            //
+            // d.then(function() {
+
+                var result = {};
+
+                self.getWebServiceGenomicEventData().then(function(_resultQueriedSamples) {
+                    genomicDataQueriedSamples = _resultQueriedSamples;
+
+                    genetic_profile_ids.push("gistic"); 
+                    var _getRefSetProfileDataParams = {
+                        genetic_profile_ids: genetic_profile_ids,
+                        genes: [self.getQueryGenes()[0]],
+                        sample_list_ids: [self.getCancerStudyIds()[0] + "_all"]
+                    };
+                    $.when(window.cbioportal_client.getGeneticProfileDataBySampleList(_getRefSetProfileDataParams)).then(
+                        function(_resultAllSamples) {
+                            genomicDataAllSamples = _resultAllSamples;
+                            genomicDataAllDiploidSampleIds = _.pluck(_.filter(genomicDataAllSamples, function(_sample){
+                                return _sample.genetic_profile_id === 'gistic'&& _sample.profile_data === '0'}), "sample_id");
+                            genomicDataAllDiploidSamples = 
+                                _.filter(genomicDataAllSamples, function(_datum) { return _.contains(genomicDataAllDiploidSampleIds, _datum.sample_id); });
+
+                            $.when(self.getGeneticProfiles()).then(function(_profiles) { 
+                                _.each(_profiles, function(_profile) { 
+
+                                    if (_profile.genetic_alteration_type === 'MRNA_EXPRESSION' ||
+                                        _profile.genetic_alteration_type === 'PROTEIN_LEVEL') {
+
+                                        // --- extract zscore calculation params ---
+                                        // input arr (samples queried)
+                                        var _inputDatumArr = _.filter(genomicDataQueriedSamples, function(_datum) {
+                                            return _datum.genetic_profile_id === _profile.id;
+                                        });
+                                        var _inputSampleIds = _.pluck(_inputDatumArr, "sample_id");
+                                        var _inputDataArr = _.pluck(_inputDatumArr, "profile_data");
+                                        _inputDataArr = _.map(_inputDataArr, function(_inputData){ return parseFloat(_inputData) });
+                                        // reference arr (all samples)
+                                        var _refAllSampleDatumArr = _.filter(genomicDataAllSamples, function(_datum) {
+                                            return _datum.genetic_profile_id === _profile.id;
+                                        });
+                                        var _refAllSampleDataArr = _.pluck(_refAllSampleDatumArr, "profile_data");
+                                        _refAllSampleDataArr = _.map(_refAllSampleDataArr, function(_refData){ return parseFloat(_refData) });
+                                        // reference arr (diploid samples)
+                                        var _refDiploidSampleDatumArr = _.filter(genomicDataAllDiploidSamples, function(_datum) {
+                                            return _datum.genetic_profile_id === _profile.id;
+                                        });
+                                        var _refDiploidSampleDataArr = _.pluck(_refDiploidSampleDatumArr, "profile_data");
+                                        _refDiploidSampleDataArr = _.map(_refDiploidSampleDataArr, function(_refData){ return parseFloat(_refData) });
+                                        
+                                        // z score calculation
+                                        var _zscoresAllSampleRef = cbio.stat.zscore(_refAllSampleDataArr, _inputDataArr);
+                                        var _zscoresDiploidSampleRef = cbio.stat.zscore(_refDiploidSampleDataArr, _inputDataArr);
+                                        
+                                        result[_profile.id] = {};
+                                        $.each(_inputSampleIds, function(_index, _inputSampleId) {
+                                            result[_profile.id][_inputSampleId] = {};
+                                            result[_profile.id][_inputSampleId]["all"] = _zscoresAllSampleRef[_index];
+                                            result[_profile.id][_inputSampleId]["diploid"] = _zscoresDiploidSampleRef[_index];
+                                        });
+                                        
+                                    }
+                                });
+
+                                fetch_promise.resolve(result);
+
+                            });
+                        }
+                    );
+                });
+            //}
+            //); //
+        })
     };
 };

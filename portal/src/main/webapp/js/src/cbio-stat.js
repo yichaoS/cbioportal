@@ -24,7 +24,7 @@ cbio.stat = (function() {
         _.each(_squaredRef, function (_num_stDev) {
             _squaredRefSum += _num_stDev;
         });
-        return Math.sqrt(_squaredRefSum / _inputArr.length - 1);
+        return Math.sqrt(_squaredRefSum / (_inputArr.length - 1));
     }
 
     // z score
