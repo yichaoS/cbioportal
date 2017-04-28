@@ -91,8 +91,13 @@ public class SessionServiceUtil {
                 String contentString = stringWriter.toString();
                 LOG.debug("SessionServiceUtil.getSession(): response = '" + contentString + "'");
                 JsonNode json = new ObjectMapper().readTree(contentString); 
+<<<<<<< HEAD
                 LOG.debug("SessionServiceUtil.getSession(): response.data = '" + json.get("data").textValue() + "'");
                 parameterMap = new ObjectMapper().readValue(json.get("data").textValue(), new TypeReference<Map<String, String[]>>(){});
+=======
+                LOG.debug("SessionServiceUtil.getSession(): response.data = '" + json.get("data").getValueAsText() + "'");
+                parameterMap = new ObjectMapper().readValue(json.get("data").toString(), new TypeReference<Map<String, String[]>>(){});
+>>>>>>> 68470aeedb1f8c2933d6e9142daa6b815c232290
             } else {
                 LOG.warn("SessionServiceUtil.getSession(): conn.getResponseCode() = '" + conn.getResponseCode() + "'");
                 if (conn.getResponseCode() == HttpURLConnection.HTTP_NOT_FOUND) {
