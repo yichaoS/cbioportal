@@ -218,7 +218,7 @@ if (sessionError != null) {  %>
                 <a href="#cc-mutations" id="cc-mutations-link" title="Mutation details, including mutation type, predicted functional consequence">Mutations</a>
             </li>
             <li>
-                <a href="#cc-plots" id="cc-plots-link" title="Plots with mRNA expression data (TCGA provisional only)">Expression</a>
+                <a href="#cc-plots" id="cc-plots-link" title="Plots with mRNA expression data">Expression</a>
             </li>
             <li>
                 <a href="#cc-download" id="cc-download-link" title="Download all alterations or copy and paste into Excel">Download</a>
