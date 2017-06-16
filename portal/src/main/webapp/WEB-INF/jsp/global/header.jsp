@@ -61,7 +61,7 @@
         $(document).ready(function(){
             window.cbioURL =  window.location.origin + window.location.pathname.substring(0, window.location.pathname.indexOf("/",2))+'/';
             <%if(!sessionServiceUrl.equals("")){%>
-            vcSession.URL = 'api-legacy/proxy/virtual-cohort';
+            vcSession.URL ='api-legacy/proxy/session-service/virtual_cohort';
             <%}%>
 
         });

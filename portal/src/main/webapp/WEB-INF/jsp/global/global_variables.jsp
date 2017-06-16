@@ -121,7 +121,7 @@
 //            showCoexpTab = true;
 //        }
 //    }        
-
+    String sessionServiceUrl = (GlobalProperties.getSessionServiceUrl() == null) ? "" : GlobalProperties.getSessionServiceUrl();
 %>
 
 <!--Global Data Objects Manager-->
@@ -168,12 +168,13 @@
 <script>
 
     $(document).ready(function() {
+        window.sessionServiceUrl = '<%=sessionServiceUrl%>';
         var getCohortName = function(){
             var def = new $.Deferred();
             if (window.isVirtualStudy) {
                 $.ajax({
                     method: 'GET',
-                    url: 'api-legacy/proxy/virtual-cohort/' + window.cohortIdsList[0]
+                    url: 'api/proxy/' + sessionServiceUrl + 'virtual_cohort/' + window.cohortIdsList[0]
                 }).done(function(response){
                     def.resolve(response['data']['studyName']);
                 }).fail(function () {
