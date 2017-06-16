@@ -37,18 +37,18 @@
 <%@taglib prefix="t" tagdir="/WEB-INF/tags" %>
 
 
-    <%
+<%
     String siteTitle = GlobalProperties.getTitle();
- 
+
     String selectedCancerStudyId =
-		    (String) request.getAttribute(QueryBuilder.CANCER_STUDY_ID);
-    
-    String selectedSampleIds = 
-                    (String) request.getParameter(QueryBuilder.CASE_IDS);
+        (String) request.getAttribute(QueryBuilder.CANCER_STUDY_ID);
+
+    String selectedSampleIds =
+        (String) request.getParameter(QueryBuilder.CASE_IDS);
     if (siteTitle == null) {
         siteTitle = "cBioPortal for Cancer Genomics";
     }
-  
+
 %>
 
 <%
@@ -68,7 +68,7 @@
                 // This means no study selected
                 window.selectedCancerStudyId = "";
             }
-            
+
             window.selectedSampleIds = '${selectedSampleIds}';
 
             window.loadReactApp({ defaultRoute: 'home' });
@@ -78,7 +78,7 @@
     <jsp:attribute name="body_area">
         <div id="reactRoot"></div>
     </jsp:attribute>
-    
+
 
 </t:template>
     
