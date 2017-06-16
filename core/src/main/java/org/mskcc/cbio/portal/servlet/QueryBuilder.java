@@ -438,12 +438,10 @@ public class QueryBuilder extends HttpServlet {
                     geneticProfileMap.put(profileId, GeneticProfileUtil.getProfile(profileId, geneticProfileList));
             }
             if (cohortDetails.getIsVirtualStudy()) {
-                System.out.println("building profile list with data priority");
                 HashMap<String, GeneticProfile> defaultGeneticProfileSet = null;
                 CategorizedGeneticProfileSet categorizedGeneticProfileSet = new CategorizedGeneticProfileSet(
                     geneticProfileList);
                 if (dataTypePriority != null) {
-                    System.out.println("data priority is not null");
                     // Get the default genomic profiles
                     switch (dataTypePriority) {
                         case 2:
@@ -463,16 +461,6 @@ public class QueryBuilder extends HttpServlet {
                 // geneticProfileMap.putAll(defaultGeneticProfileSet);
                 for (String pId: defaultGeneticProfileSet.keySet()) {
                     geneticProfileMap.put(pId, defaultGeneticProfileSet.get(pId));
-                }
-                for (GeneticProfile g: defaultGeneticProfileSet.values()) {
-                    System.out.println("profile id: " + g.getStableId());
-                    System.out.println("profile study internal id: " + g.getCancerStudyId());
-                    System.out.println("profile study stable id: " + (DaoCancerStudy.getCancerStudyByInternalId(g.getCancerStudyId()).getCancerStudyStableId()));
-                }
-                for (GeneticProfile g: geneticProfileMap.values()) {
-                    System.out.println("profile id: " + g.getStableId());
-                    System.out.println("profile study internal id: " + g.getCancerStudyId());
-                    System.out.println("profile study stable id: " + (DaoCancerStudy.getCancerStudyByInternalId(g.getCancerStudyId()).getCancerStudyStableId()));
                 }
 
             }

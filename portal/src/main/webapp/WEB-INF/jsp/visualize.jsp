@@ -395,7 +395,7 @@ baseURL = baseURL.replace("https://", "").replace("http://", "");
             }, 50);
         }
 
-        cbio.util.toggleMainBtn("dashboard_button", "enable");
+        //cbio.util.toggleMainBtn("dashboard_button", "enable");
 
         $("a.result-tab").click(function(){
 
