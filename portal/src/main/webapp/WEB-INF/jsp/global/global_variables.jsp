@@ -169,12 +169,15 @@
 
     $(document).ready(function() {
         window.sessionServiceUrl = '<%=sessionServiceUrl%>';
+        if(window.sessionServiceUrl) {
+            window.sessionServiceUrl = window.sessionServiceUrl.replace(/http(s)*:\/+/, '');
+        }
         var getCohortName = function(){
             var def = new $.Deferred();
             if (window.isVirtualStudy) {
                 $.ajax({
                     method: 'GET',
-                    url: 'api/proxy/' + sessionServiceUrl + 'virtual_cohort/' + window.cohortIdsList[0]
+                    url: 'proxy/' + window.sessionServiceUrl + 'virtual_cohort/' + window.cohortIdsList[0]
                 }).done(function(response){
                     def.resolve(response['data']['studyName']);
                 }).fail(function () {
