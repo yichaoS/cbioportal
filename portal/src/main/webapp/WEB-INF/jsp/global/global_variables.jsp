@@ -175,14 +175,18 @@
         var getCohortName = function(){
             var def = new $.Deferred();
             if (window.isVirtualStudy) {
-                $.ajax({
-                    method: 'GET',
-                    url: 'proxy/' + window.sessionServiceUrl + 'virtual_cohort/' + window.cohortIdsList[0]
-                }).done(function(response){
-                    def.resolve(response['data']['studyName']);
-                }).fail(function () {
+                if (window.cohortIdsList.length === 1) {
+                    $.ajax({
+                        method: 'GET',
+                        url: 'proxy/' + window.sessionServiceUrl + 'virtual_cohort/' + window.cohortIdsList[0]
+                    }).done(function(response){
+                        def.resolve(response['data']['studyName']);
+                    }).fail(function () {
+                        def.resolve([]);
+                    });                    
+                } else {
                     def.resolve([]);
-                });
+                }
             } else {
                 window.QuerySession.getCancerStudyNames().then(function (_studies) {
                     def.resolve(_studies[0]);
